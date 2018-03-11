@@ -1,5 +1,5 @@
-# tte
-###(Tiny) Tree Editor
+# tinytreeeditor
+### (Tiny) Tree Editor
 
   * Create and edit a tree of nodes with this tool.
   * Nodes are a string of any characters including spaces.
