@@ -1,5 +1,5 @@
 -------------------------------------------------------------
---    Small Word Tree Editor
+--    (Tiny) Tree Editor
 --    Author: John Derry (johndderry@yahoo.com)
 --    Version: 1.0
 --    No Rights Reserved
