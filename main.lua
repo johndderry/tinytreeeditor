@@ -82,6 +82,7 @@ end
 function SynTree:cut( node )
   if inTree( node, self.current ) then
     self.current = node.parent
+    smachine.depth = smachine.depth -1
   end
   self.cutbuffer = node
   if node.prev then
@@ -173,7 +174,7 @@ function SynTree:dump( node )
   return tmps
 end
   
-function SynTree:setRowPosition( x, y, node )
+function SynTree:setRowPosition( x, y, node, depth )
   local first, namelen = true, 0
   local newx, returning
   
@@ -182,9 +183,11 @@ function SynTree:setRowPosition( x, y, node )
     newx = x
     namelen = 7 * (#node.name + 2)
     if node.child then 
-      newx = self:setRowPosition( x, y + 18, node.child )
+      newx = self:setRowPosition( x, y + 18, node.child, depth + 1 )
       returning = true
     end
+    
+    node.depth = depth
     
     if returning then
       node.x = x
@@ -196,9 +199,13 @@ function SynTree:setRowPosition( x, y, node )
     node.xlen = namelen
     node.y = y
     
-    if node.x + node.xlen > self.xhi then self.xhi = node.x + node.xlen end
-    if node.y > self.yhi then self.yhi = node.y end
-    
+    if node.x + node.xlen > self.xhi then
+      self.xhi = node.x + node.xlen
+    end
+    if node.y > self.yhi then 
+      self.yhi = node.y
+    end
+        
     x = x + namelen + 12
     node = node.next
   end
@@ -243,8 +250,7 @@ end
 
 function SynTree:locate( node, x, y )
   
-  fnode = nil
-  
+  local fnode = nil
   while node do
   
     if node.child then
@@ -254,6 +260,26 @@ function SynTree:locate( node, x, y )
     
     if x >= node.x and x <= node.x + node.xlen and
        y >= node.y and y <= node.y + 12 then
+      return node
+    end
+    
+    node = node.next
+  end
+  
+  return nil
+end
+
+function SynTree:search( node, str )
+  
+  local fnode = nil
+  while node do
+  
+    if node.child then
+      fnode = self:search( node.child, str )
+      if fnode then return fnode end
+    end
+    
+    if node.name == str then
       return node
     end
     
@@ -393,9 +419,9 @@ MyShift = {[","]="<", ["."]=">", ["/"]="?", [";"]=":", ["'"]='"', ["'"]='"',
            ["7"]="&", ["8"]="*", ["9"]="(", ["0"]=")", ["-"]="_", ["="]="+" }
 blurb = 2
 scrollX, scrollY = 0, 0
-input, definition, filename, message = "", "", "", nil
+input, definition, filename, searchstr, message = "", "", "", "", nil
 defmode, shift, editmode, autoscroll = false, false, false, true
-floadmode, fsavemode = false, false
+floadmode, fsavemode, searchmode, mousehold = false, false, false, false
 reference = SynTree:new()
 
 function adjustSelectScroll()
@@ -417,7 +443,7 @@ function adjustSelectScroll()
     end
     
     smachine.tree.xhi, smachine.tree.yhi = 0, 0
-    smachine.tree:setRowPosition( 10 + scrollX, 60 + scrollY, smachine.tree.root )
+    smachine.tree:setRowPosition( 10 + scrollX, 60 + scrollY, smachine.tree.root, 1 )
   end
 end
 
@@ -511,8 +537,10 @@ function love.keyreleased( key )
     if key == 'return' then
       floadmode = false
       local file = io.open(filename, "r")
-      if file == nil then return end
-      
+      if file == nil then
+        message = "!!failure to read!!"
+        return
+      end
       local ss = file:read("*all"); file:close()
       smachine.tree.root = nil
       smachine.tree:load( smachine.tree.root, ss )
@@ -540,11 +568,16 @@ function love.keyreleased( key )
       fsavemode = false
       local ss = smachine.tree:dump( smachine.tree.root )
       local file = io.open(filename, "w+")
-      if file == nil then return end      
+      if file == nil then
+        message = "!!failure to saveful!!"
+        return
+      end      
       file:write( ss ); file:close()
       message = "**save successful**"
       return
-    elseif key == 'escape' then return
+    elseif key == 'escape' then 
+      fsavemode = false
+      return
     elseif key == 'backspace' then
       if #filename > 0 then
         filename = string.sub( filename, 1, #filename - 1 )
@@ -566,7 +599,41 @@ function love.keyreleased( key )
     smachine.crossReference( reference.root )
     return
   end
-    
+  
+  if key == 'f4' then
+    searchmode = true
+    return
+  end
+  if searchmode then
+    if key == 'return' then
+      searchmode = false
+      local node = smachine.tree:search( smachine.tree.root, searchstr )
+      if node then
+        smachine.tree.select.selected = false
+        smachine.tree.select = node
+        node.selected = true
+        message = "**located**"
+      else      
+        message = "!!not found!!"
+      end
+      return
+    elseif key == 'escape' then
+      searchmode = false
+      return
+    elseif key == 'backspace' then
+      if #searchstr > 0 then
+        searchstr = string.sub( searchstr, 1, #searchstr - 1 )
+      end
+      return
+    end
+    if key == 'space' then key = ' '
+    elseif shift then key = key:upper()
+    end
+    searchstr = searchstr .. key
+
+    return
+  end
+  
   if key == 'f10' then love.event.quit() return end
   
   if key == 'down' or key == 'up' or key == 'left' or key == 'right' or
@@ -682,9 +749,31 @@ function love.keyreleased( key )
   input = input .. key
 end
   
+function love.mousepressed(x, y, button )
+  
+  if button ~= 1 then return end
+  
+  local node = smachine.tree:locate( smachine.tree.root, x, y )
+  if node then return end
+  
+  mousehold = true
+  return
+end
+
+function love.mousemoved( x, y, dx, dy )
+  
+  if not mousehold then return end
+    
+  scrollX = scrollX + dx
+  scrollY = scrollY + dy  
+  return
+end
+  
 function love.mousereleased(x, y, button )
   
   if button ~= 1 then return end
+  
+  mousehold = false
   
   local node = smachine.tree:locate( smachine.tree.root, x, y )
   if node then
@@ -696,6 +785,7 @@ function love.mousereleased(x, y, button )
 end
 
 function love.load(arg)
+  
   if arg and arg[#arg] == "-debug" then require("mobdebug").start() end
   
   screenX, screenY  = love.graphics.getWidth(), love.graphics.getHeight()
@@ -715,7 +805,7 @@ function love.update()
   
   if smachine.tree.root then
     smachine.tree.xhi, smachine.tree.yhi = 0, 0
-    smachine.tree:setRowPosition( 10 + scrollX, 74 + scrollY, smachine.tree.root )
+    smachine.tree:setRowPosition( 10 + scrollX, 74 + scrollY, smachine.tree.root, 1 )
     
     if autoscroll then
       if smachine.tree.xhi > screenX*0.8 then scrollX = scrollX - screenX*0.2 end
@@ -742,13 +832,15 @@ function love.draw ()
   love.graphics.rectangle( "fill", 0, 38, screenX, 32 )
   love.graphics.setColor(255,255,255,255)
   
-  if floadmode then
+  if searchmode then
+    love.graphics.print( "Search for Node: " .. searchstr, 8, 8 )
+  elseif floadmode then
     love.graphics.print( "File to Load: " .. filename, 8, 8 )
   elseif fsavemode then
     love.graphics.print( "File to Save: " .. filename, 8, 8 )
   elseif shift then
     love.graphics.print( "Use Arrow/Home/End to navigate for editing. Insert/Delete to cut&paste, `\\' to edit.", 8, 8) 
-    love.graphics.print( "F1 Load/F2 Save/F3 Reference Swap/../F10 Exit", 8, 24 ) 
+    love.graphics.print( "F1 Load/F2 Save/F3 Reference Swap/F4 Search/../F10 Exit", 8, 24 ) 
   elseif message then
     love.graphics.print( message, 8, 8 )
   else

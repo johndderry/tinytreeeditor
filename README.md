@@ -1,4 +1,4 @@
-# tinytreeeditor
+# tte
 ### (Tiny) Tree Editor
 
   * Create and edit a tree of nodes with this tool.
@@ -22,17 +22,17 @@ You may also:
      
 Once you have built up your tree you can go back and make changes.
 
-  * Use the arrow keys and home to move the selected node 
-     ( highlighted ) to your desired position. 
+  * Use the arrow, home and end keys or click with the mouse to move
+    the selected node ( highlighted ) to your desired position.
+  * Or is F4 key to search for a node with search text.
   * Use the backslash to begin editing the node in order to change
-     the main text and/or meaning text.
+    the main text and/or meaning text.
   * Use the delete and insert keys to cut from the tree or paste into 
-     the tree at the selected node using a paste buffer.
+    the tree at the selected node using a paste buffer.
 
 Save the tree into a text file with the F2 key, and load that tree back
-with the F1 key. The file lists the nodes in an immediate descent
-fashion, and the semicolon acts again as the indicator of a sibling
-node to follow.
+with the F1 key. The output file lists the nodes and meanings
+delimited by tab and newline characters, same as was entered.
 
 The editor tool can hold two trees in memory, but only one is being
 displayed. The second tree is treated a reference tree and is not
