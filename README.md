@@ -15,9 +15,9 @@
 
 You may also:
   * Use the backspace key to remove the last node added.
-  * Use the semicolon to switch from adding child nodes to
+  * Use the tab key to switch from adding child nodes to
     adding sibling nodes, and to move position to a parent node.
-  * Use the colon to switch from adding sibling nodes to adding
+  * Use the enter key to switch from adding sibling nodes to adding
     child nodes, and to move position to a child node.
      
 Once you have built up your tree you can go back and make changes.
