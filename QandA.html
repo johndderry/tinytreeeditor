@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html><head>
+<title>QandA</title></head>
+<body>
+<p id="question"></p>
+<p id="radiochoices"></p>  
+<input id="go" value="Continue" type="button">
+<script>
+var button = document.getElementById("go");
+var question = document.getElementById("question");
+var radiochoices = document.getElementById("radiochoices");
+var childname, childradio;
+
+function display(node) {
+  question.innerHTML = node.meaning;
+  while( radiochoices.lastChild ) {
+    radiochoices.removeChild(radiochoices.lastChild);
+  }
+  childname = [];
+  childradio = [];
+  if( node.child ) {
+    var e, l, n = node.child;
+    while( n ) {
+      e = document.createElement("input");
+      e.type = "radio";
+      e.name = "choices";
+      l = document.createElement("label");
+      l.appendChild(e);
+      l.appendChild(document.createTextNode(n.name));
+      l.appendChild(document.createElement("br"));
+      radiochoices.appendChild(l);
+      childname.push(n.name);
+      childradio.push(e);
+      n = n.next;
+    }
+  }
+  node = node.next;
+}
+
+function getChoice() {
+  for( var i=0; i<childname.length; i++ ) 
+    if( childradio[i].checked ) 
+      return childname[i];
+  return null;
+}
+
+function descend() {
+  var d = current.child;
+  var c = getChoice();
+  while( d && d.name != c) {
+    d = d.next;
+  }
+  if( !d ) return;
+  else
+    current = d;
+  display( current );
+}
+
+//
+// Replace with Tree Definition HERE
+// root = ..
+//
+root = {}
+
+button.addEventListener("click", descend );
+display( current );
+</script></body>

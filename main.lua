@@ -151,6 +151,27 @@ function SynTree:load( node, chunk )
   end
 end
 
+function SynTree:altdump( node )
+  
+  local tmps = ' { name: "' .. node.name .. '",' 
+  
+  if node.meaning then
+    tmps = tmps .. ' meaning: "' .. node.meaning .. '",'
+  end
+  
+  if node.child then
+    tmps = tmps .. ' child:' .. self:altdump( node.child ) 
+--  else
+--    tmps = tmps .. ' }'
+  end
+  
+  if node.next then
+    tmps = tmps .. ' next:' .. self:altdump( node.next )
+  end
+  
+  return tmps .. ' }'
+end
+  
 function SynTree:dump( node )
   
   local tmps = node.name
@@ -421,8 +442,26 @@ blurb = 2
 scrollX, scrollY = 0, 0
 input, definition, filename, searchstr, message = "", "", "", "", nil
 defmode, shift, editmode, autoscroll = false, false, false, true
-floadmode, fsavemode, searchmode, mousehold = false, false, false, false
+floadmode, fsavemode, falt, searchmode, mousehold = false, false, false, false, false
 reference = SynTree:new()
+
+function love.load(arg)
+  
+  if arg and arg[#arg] == "-debug" then require("mobdebug").start() end
+  
+  screenX, screenY  = love.graphics.getWidth(), love.graphics.getHeight()
+  love.window.setTitle( "(Tiny) Tree Editor" )
+  
+  if love.filesystem.exists("Blurb1.png") and love.filesystem.exists("Blurb2.png") and 
+     love.filesystem.exists("Blurb3.png") then
+    blurb1pix = love.graphics.newImage( "Blurb1.png" )
+    blurb2pix = love.graphics.newImage( "Blurb2.png" )
+    blurb3pix = love.graphics.newImage( "Blurb3.png" )
+    blurb = 3
+  else
+    blurb = 0
+  end
+end
 
 function adjustSelectScroll()
   
@@ -451,8 +490,10 @@ function love.keypressed( key )
   if key == 'lshift' or key == 'rshift' then
     shift = true
   end
-  if blurb == 2 then blurb = 1
-  elseif blurb == 1 then blurb = 0
+  if blurb > 0 then 
+    if key == 'escape' then blurb = 0
+    else blurb = blurb - 1
+    end  
   end
 end
 
@@ -561,12 +602,18 @@ function love.keyreleased( key )
   
   if key == 'f2' then
     fsavemode = true
+    if shift then falt = true end
     return
   end
   if fsavemode then
     if key == 'return' then
       fsavemode = false
-      local ss = smachine.tree:dump( smachine.tree.root )
+      local ss
+      if falt then
+        ss = 'root =' .. smachine.tree:altdump( smachine.tree.root ) .. ';'
+      else
+        ss = smachine.tree:dump( smachine.tree.root )
+      end
       local file = io.open(filename, "w+")
       if file == nil then
         message = "!!failure to saveful!!"
@@ -636,6 +683,8 @@ function love.keyreleased( key )
   
   if key == 'f10' then love.event.quit() return end
   
+  -- at this point filter out any key events we don't want to record
+  --
   if key == 'down' or key == 'up' or key == 'left' or key == 'right' or
      key == 'insert' or key == 'delete' or key == 'home' then return end
     
@@ -784,23 +833,6 @@ function love.mousereleased(x, y, button )
   
 end
 
-function love.load(arg)
-  
-  if arg and arg[#arg] == "-debug" then require("mobdebug").start() end
-  
-  screenX, screenY  = love.graphics.getWidth(), love.graphics.getHeight()
-  love.window.setTitle( "Simple Word Tree Editor" )
-  
-  if love.filesystem.exists("Blurb1.png") and love.filesystem.exists("Blurb2.png") then
-    blurb1pix = love.graphics.newImage( "Blurb1.png" )
-    blurb2pix = love.graphics.newImage( "Blurb2.png" )
-    blurb = 2
-  else
-    blurb = 0
-  end
-  
-end
-
 function love.update()
   
   if smachine.tree.root then
@@ -817,20 +849,22 @@ end
 
 function love.draw ()  
   
-  if blurb > 0 and blurb1pix and blurb2pix then
-    if blurb == 2 then
+  if blurb > 0 then
+    if blurb == 3 then
       love.graphics.draw( blurb1pix, 0, 0 )
-    elseif blurb == 1 then
+    elseif blurb == 2 then
       love.graphics.draw( blurb2pix, 0, 0 )
+    elseif blurb == 1 then
+      love.graphics.draw( blurb3pix, 0, 0 )
     end
     return
   end
 
-  love.graphics.setColor(100,50,0,255)
+  love.graphics.setColor( 100, 50, 0, 255 )
   love.graphics.rectangle( "fill", 0, 6, screenX, 32 )
-  love.graphics.setColor(0,100,50,255)
+  love.graphics.setColor( 0, 100, 50, 255 )
   love.graphics.rectangle( "fill", 0, 38, screenX, 32 )
-  love.graphics.setColor(255,255,255,255)
+  love.graphics.setColor( 255, 255, 255, 255 )
   
   if searchmode then
     love.graphics.print( "Search for Node: " .. searchstr, 8, 8 )
