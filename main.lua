@@ -32,7 +32,7 @@ function SynTree:new()
   o = {}
   setmetatable(o, self)
   self.__index = self
-  self.root, self.select = nil, nil
+  self.root, self.current, self.select = nil, nil, nil
   self.state = "init"
   return o
 end
@@ -318,8 +318,8 @@ smachine = {}
 smachine.depth = 0
 smachine.state = "init"
 smachine.tree = SynTree:new()
-smachine.tree.current = nil
-smachine.crossref = nil
+smachine.reference = SynTree:new()
+smachine.refindex, smachine.refparse = nil, nil
 
 smachine.nextState = function ( input, node ) 
   
@@ -414,36 +414,58 @@ smachine.nextState = function ( input, node )
   return node
 end
 
-function smachine.crossReference( node )
+function smachine.travParseAdd( pnode, subname, fullname )
+
+  local chr = subname:sub( 1, 1 )
+  local restof = subname:sub(2)
+  local lastnode = nil
+  
+  while pnode and pnode.name ~= chr do
+    lastnode = pnode
+    pnode = pnode.next
+  end
+  if pnode == nil then
+    pnode = smachine.refparse:attach( lastnode.parent, lastnode, chr )
+  end
+    
+  if #restof > 0 then
+    smachine.travParseAdd( pnode, restof, fullname )
+  else
+    pnode.meaning = fullname
+  end
+  
+end
+
+function smachine.mkRefTables( node )
     
   if node == nil then return end
   
   if node.child then
-    smachine.crossReference( node.child )
+    smachine.mkRefTables( node.child )
   end
   
   while node do
-    smachine.crossref[node.name] = node
+    smachine.refindex[node.name] = node
+    smachine.travParseAdd( smachine.refparse, node.name, node.name )
     node = node.next
   end
   
-  return ref
 end
 
 -------------------------------------------------------------
 --  love Event Handlers defined
 -------------------------------------------------------------
 
-MyShift = {[","]="<", ["."]=">", ["/"]="?", [";"]=":", ["'"]='"', ["'"]='"', 
+MyShift = {[","]="<", ["."]=">", ["/"]="?", [";"]=":", ["'"]='"', 
            ["["]="{", ["]"]="}", ["\\"]="|",["`"]="~", ["1"]="!", ["2"]="@",
            ["3"]="#", ["4"]="$", ["5"]="%", ["6"]="^",
            ["7"]="&", ["8"]="*", ["9"]="(", ["0"]=")", ["-"]="_", ["="]="+" }
-blurb = 2
+blurb = 3
 scrollX, scrollY = 0, 0
 input, definition, filename, searchstr, message = "", "", "", "", nil
 defmode, shift, editmode, autoscroll = false, false, false, true
 floadmode, fsavemode, falt, searchmode, mousehold = false, false, false, false, false
-reference = SynTree:new()
+
 
 function love.load(arg)
   
@@ -637,13 +659,15 @@ function love.keyreleased( key )
   end
     
   if key == 'f3' then
-    local tmp = reference
-    smachine.tree.state = smachine.state
-    reference = smachine.tree 
-    smachine.tree = tmp
-    smachine.state = tmp.state
-    smachine.crossref = {}
-    smachine.crossReference( reference.root )
+    local tmp
+      tmp = smachine.reference
+      smachine.tree.state = smachine.state
+      smachine.reference = smachine.tree 
+      smachine.tree = tmp
+      smachine.state = tmp.state
+      smachine.refindex = {}
+      smachine.refparse = SynTree:new()
+      smachine.mkRefTables( smachine.reference.root )
     return
   end
   
