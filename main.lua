@@ -322,9 +322,9 @@ function Cursor:new(o)
   o = o or {}
   setmetatable(o, self)
   self.__index = self
-  o.active = false
+  o.altmode, o.active = false, false
   o.x, o.y = 8, 0
-  o.count, o.max = 200, 200
+  o.count, o.max = 100, 100
   return o
 end
 
@@ -340,10 +340,12 @@ function Cursor:update()
   self.count = self.count - 1
   if self.count < 0 then
     self.count = self.max
-    if self.active then self:off()
-    else self:on() end
-    self.active = not self.active
-  end
+    if active then
+      if self.altmode then self:off()
+      else self:on() end
+      self.altmode = not self.altmode
+    end
+  end  
 end
 
 -------------------------------------------------------------
@@ -501,37 +503,6 @@ scrollX, scrollY = 0, 0
 input, definition, filename, searchstr, message = "", "", "", "", nil
 shift, defmode, editmode, autoscroll = false, false, false, true
 floadmode, fsavemode, falt, searchmode, mousehold = false, false, false, false, false
-
-function love.load( arg )
-  
-  if arg and arg[#arg] == "-debug" then require("mobdebug").start() end
-  
-  screenX, screenY  = love.graphics.getWidth(), love.graphics.getHeight()
-  love.window.setTitle( "(Tiny) Tree Editor" )
-  
-  font = love.graphics.setNewFont( 16 )
-  fontheight = font:getHeight()
-  
-  cursor = Cursor:new( { colorOn={60,0,128}, colorOff={0,128,128} } )
-  --errcursor = Cursor:new( {colorOn={128,60,0}, colorOff={128,0,128} })
-
-  cursor.height = fontheight
-  cursor.width = 12
-  cursor.y = 14 + 3*fontheight
-  cursor:on()
-  
-  treeYbegin = 16 + 4*fontheight
-  
-  if love.filesystem.exists("Blurb1.png") and love.filesystem.exists("Blurb2.png") and 
-     love.filesystem.exists("Blurb3.png") then
-    blurb1pix = love.graphics.newImage( "Blurb1.png" )
-    blurb2pix = love.graphics.newImage( "Blurb2.png" )
-    blurb3pix = love.graphics.newImage( "Blurb3.png" )
-    blurb = 3
-  else
-    blurb = 0
-  end
-end
 
 function adjustSelectScroll()
   
@@ -754,7 +725,7 @@ function love.keyreleased( key )
   end
   
   if key == 'f10' then love.event.quit() return end
-  
+  --
   -- at this point filter out any key events we don't want to record
   --
   if key == 'down' or key == 'up' or key == 'left' or key == 'right' or
@@ -814,6 +785,9 @@ function love.keyreleased( key )
     return
   end
   
+  --
+  -- now we call the state machine or save keystroke
+  --
   autoscroll = true
   
   if key == 'backspace' then
@@ -903,6 +877,36 @@ function love.mousereleased( x, y, button )
     node.selected = true
   end
   
+end
+
+function love.load( arg )
+  
+  if arg and arg[#arg] == "-debug" then require("mobdebug").start() end
+  
+  screenX, screenY  = love.graphics.getWidth(), love.graphics.getHeight()
+  love.window.setTitle( "(Tiny) Tree Editor" )
+  
+  font = love.graphics.setNewFont( 12 )
+  fontheight = font:getHeight()
+  
+  cursor = Cursor:new( { colorOn={r=128,g=0,b=200}, colorOff={r=0,g=128,b=200} } )
+  
+  cursor.height = fontheight
+  cursor.width = 12
+  cursor.y = 14 + 3*fontheight
+  cursor:on()
+  
+  treeYbegin = 16 + 4*fontheight
+  
+  if love.filesystem.exists("Blurb1.png") and love.filesystem.exists("Blurb2.png") and 
+     love.filesystem.exists("Blurb3.png") then
+    blurb1pix = love.graphics.newImage( "Blurb1.png" )
+    blurb2pix = love.graphics.newImage( "Blurb2.png" )
+    blurb3pix = love.graphics.newImage( "Blurb3.png" )
+    blurb = 3
+  else
+    blurb = 0
+  end
 end
 
 function love.update()
