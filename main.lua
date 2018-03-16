@@ -198,13 +198,15 @@ end
 function SynTree:setRowPosition( x, y, node, depth )
   local first, namelen = true, 0
   local newx, returning
+  local spacing = 4
   
   while node do
     returning = false
     newx = x
-    namelen = 7 * (#node.name + 2)
+    --namelen = 7 * (#node.name + 2)
+    namelen = font:getWidth( '(' .. node.name .. ')' )
     if node.child then 
-      newx = self:setRowPosition( x, y + 18, node.child, depth + 1 )
+      newx = self:setRowPosition( x, y + 1.5*fontheight, node.child, depth + 1 )
       returning = true
     end
     
@@ -227,10 +229,10 @@ function SynTree:setRowPosition( x, y, node, depth )
       self.yhi = node.y
     end
         
-    x = x + namelen + 12
+    x = x + namelen + spacing
     node = node.next
   end
-  return x - (namelen + 12)
+  return x - (namelen + spacing)
 end
 
 function SynTree:display( node )
@@ -239,26 +241,27 @@ function SynTree:display( node )
   while node do
     
     if lastnode then
-      love.graphics.line(lastnode.x + lastnode.xlen, node.y+8, node.x, node.y+8 )
+      love.graphics.line(lastnode.x + font:getWidth('('..lastnode.name..')'), node.y+fontheight/2, node.x, node.y+fontheight/2 )
     end
     
     if node.child then
       self:display( node.child )
-      if node.x >= 0 and node.x < screenX and node.y >= 60 and node.y < screenY then
+      if node.x >= 0 and node.x < screenX and node.y >= treeYbegin and node.y < screenY then
         love.graphics.line(node.child.x + node.child.xlen/2, node.child.y,
-          node.x + node.xlen/2, node.y + 12 )
+          node.x + node.xlen/2, node.y + fontheight )
       end
     end
     
-    if node.x >= 0 and node.x < screenX and node.y >= 60 and node.y < screenY then 
+    if node.x >= 0 and node.x < screenX and node.y >= treeYbegin and node.y < screenY then 
       if node.selected then
-        local r, g, b, a = love.graphics.getColor()
-        love.graphics.rectangle("fill", node.x, node.y, node.xlen, 14)
+        --local r, g, b, a = love.graphics.getColor()
+        love.graphics.rectangle("fill", node.x, node.y, node.xlen, fontheight )
         love.graphics.setColor( 0, 0, 0, 255 ) 
-        love.graphics.print( '('.. node.name .. ')', node.x, node.y )
-        love.graphics.setColor( r, g, b, a ) 
+        love.graphics.print( '('.. node.name ..')', node.x, node.y )
+        --love.graphics.setColor( r, g, b, a ) 
+        love.graphics.setColor( 255, 255, 255, 255 ) 
       else  
-        love.graphics.print( '('.. node.name .. ')', node.x, node.y )
+        love.graphics.print( '('.. node.name ..')', node.x, node.y )
       end
     end
     
@@ -453,6 +456,15 @@ function smachine.mkRefTables( node )
 end
 
 -------------------------------------------------------------
+--  cursor Cursor
+-------------------------------------------------------------
+
+cursor = {}
+cursor.x = 8
+cursor.color, cursor.altcolor = {}, {}
+cursor.r, cursor.g, cursor.b = 60, 0, 128
+
+-------------------------------------------------------------
 --  love Event Handlers defined
 -------------------------------------------------------------
 
@@ -463,16 +475,21 @@ MyShift = {[","]="<", ["."]=">", ["/"]="?", [";"]=":", ["'"]='"',
 blurb = 3
 scrollX, scrollY = 0, 0
 input, definition, filename, searchstr, message = "", "", "", "", nil
-defmode, shift, editmode, autoscroll = false, false, false, true
+shift, defmode, editmode, autoscroll = false, false, false, true
 floadmode, fsavemode, falt, searchmode, mousehold = false, false, false, false, false
 
-
-function love.load(arg)
+function love.load( arg )
   
   if arg and arg[#arg] == "-debug" then require("mobdebug").start() end
   
   screenX, screenY  = love.graphics.getWidth(), love.graphics.getHeight()
   love.window.setTitle( "(Tiny) Tree Editor" )
+  
+  font = love.graphics.setNewFont( 16 )
+  fontheight = font:getHeight(); cursor.height = fontheight
+  cursor.width = 12
+  cursor.y = 14 + 3*fontheight
+  treeYbegin = 16 + 4*fontheight
   
   if love.filesystem.exists("Blurb1.png") and love.filesystem.exists("Blurb2.png") and 
      love.filesystem.exists("Blurb3.png") then
@@ -487,8 +504,8 @@ end
 
 function adjustSelectScroll()
   
-  while smachine.tree.select.x > screenX*0.8 or smachine.tree.select.x < 10 or
-      smachine.tree.select.y > screenY*0.8 or smachine.tree.select.y < 60 do
+  while smachine.tree.select.x > screenX*0.8 or smachine.tree.select.x < 8 or
+      smachine.tree.select.y > screenY*0.8 or smachine.tree.select.y < treeYbegin do
     
     autoscroll = false
     
@@ -499,12 +516,12 @@ function adjustSelectScroll()
     end
     if smachine.tree.select.y > screenY*0.8 then
       scrollY = scrollY - screenY*0.2 
-    elseif smachine.tree.select.y < 60 then
+    elseif smachine.tree.select.y < treeYbegin then
       scrollY = scrollY + screenY*0.2
     end
     
     smachine.tree.xhi, smachine.tree.yhi = 0, 0
-    smachine.tree:setRowPosition( 10 + scrollX, 60 + scrollY, smachine.tree.root, 1 )
+    smachine.tree:setRowPosition( 10 + scrollX, treeYbegin + scrollY, smachine.tree.root, 1 )
   end
 end
 
@@ -822,7 +839,7 @@ function love.keyreleased( key )
   input = input .. key
 end
   
-function love.mousepressed(x, y, button )
+function love.mousepressed( x, y, button )
   
   if button ~= 1 then return end
   
@@ -842,7 +859,7 @@ function love.mousemoved( x, y, dx, dy )
   return
 end
   
-function love.mousereleased(x, y, button )
+function love.mousereleased( x, y, button )
   
   if button ~= 1 then return end
   
@@ -861,7 +878,7 @@ function love.update()
   
   if smachine.tree.root then
     smachine.tree.xhi, smachine.tree.yhi = 0, 0
-    smachine.tree:setRowPosition( 10 + scrollX, 74 + scrollY, smachine.tree.root, 1 )
+    smachine.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, smachine.tree.root, 1 )
     
     if autoscroll then
       if smachine.tree.xhi > screenX*0.8 then scrollX = scrollX - screenX*0.2 end
@@ -871,7 +888,7 @@ function love.update()
   end
 end
 
-function love.draw ()  
+function love.draw()  
   
   if blurb > 0 then
     if blurb == 3 then
@@ -885,46 +902,53 @@ function love.draw ()
   end
 
   love.graphics.setColor( 100, 50, 0, 255 )
-  love.graphics.rectangle( "fill", 0, 6, screenX, 32 )
+  love.graphics.rectangle( "fill", 0, 0, screenX, fontheight + 4 )
+  
   love.graphics.setColor( 0, 100, 50, 255 )
-  love.graphics.rectangle( "fill", 0, 38, screenX, 32 )
+  love.graphics.rectangle( "fill", 0, fontheight + 4, screenX, fontheight + 4  )
+  
+  cursor.x = 8 + font:getWidth( input )
+  
+  love.graphics.setColor( cursor.r, cursor.g, cursor.b, 255 )
+  love.graphics.rectangle("fill", cursor.x, cursor.y, cursor.width, cursor.height )
+  
   love.graphics.setColor( 255, 255, 255, 255 )
   
   if searchmode then
-    love.graphics.print( "Search for Node: " .. searchstr, 8, 8 )
+    love.graphics.print( "Search for Node: " .. searchstr, 2, 2 )
   elseif floadmode then
-    love.graphics.print( "File to Load: " .. filename, 8, 8 )
+    love.graphics.print( "File to Load: " .. filename, 2, 2 )
   elseif fsavemode then
-    love.graphics.print( "File to Save: " .. filename, 8, 8 )
+    love.graphics.print( "File to Save: " .. filename, 2, 2 )
   elseif shift then
-    love.graphics.print( "Use Arrow/Home/End to navigate for editing. Insert/Delete to cut&paste, `\\' to edit.", 8, 8) 
-    love.graphics.print( "F1 Load/F2 Save/F3 Reference Swap/F4 Search/../F10 Exit", 8, 24 ) 
+    love.graphics.print( "Use Arrow/Home/End to navigate for editing. Insert/Delete to cut&paste, `\\' to edit.", 2, 2) 
+    love.graphics.print( "F1 Load/F2 Save/F3 Reference Swap/F4 Search/../F10 Exit", 2, 6 + fontheight ) 
   elseif message then
-    love.graphics.print( message, 8, 8 )
+    love.graphics.print( message, 2, 2 )
   else
-    love.graphics.print( "Enter WORDS `enter' to descend and `tab' to remain at that level. Use `{' your_meaning `}' to add meaning. Shift=more help", 8, 8) 
+    love.graphics.print( "Enter WORDS `enter' to descend and `tab' to remain at that level. Use `{' your_meaning `}' to add meaning. Shift=more help", 2, 2) 
   end
 
   if #input > 0 then
-    love.graphics.print( input, 10 , 55 )
+    love.graphics.print( input, 8, 14 + 3*fontheight )
   end
   if defmode then
-    love.graphics.print('{' .. definition, 10, 40 )
+    love.graphics.print('{' .. definition, 8, 10 + 2 * fontheight )
   end
 
   if smachine.tree.current then
     if not shift then
       if editmode then
         if smachine.tree.select.meaning then
-          love.graphics.print('SELECT="' .. smachine.tree.select.name .. '" {' .. smachine.tree.select.meaning .. '} depth=' .. smachine.tree.select.depth, 8, 24 )    
+          love.graphics.print('SELECT="' .. smachine.tree.select.name .. '" {' .. smachine.tree.select.meaning .. '} depth=' .. smachine.tree.select.depth, 2, 6 + fontheight )    
         else
-          love.graphics.print('SELECT="' .. smachine.tree.select.name .. '" depth=' .. smachine.tree.select.depth, 8, 24 )
+          love.graphics.print('SELECT="' .. smachine.tree.select.name .. '" depth=' .. smachine.tree.select.depth, 2, 6 + fontheight )
         end
       else
         if smachine.tree.current.meaning then
-          love.graphics.print('CURRENT="' .. smachine.tree.current.name .. '" {' .. smachine.tree.current.meaning .. '} state=' .. smachine.state .. ' depth=' .. smachine.depth, 8, 24 )
+          love.graphics.print('CURRENT="' .. smachine.tree.current.name .. '" {' .. smachine.tree.current.meaning .. '} state=' .. smachine.state .. ' depth=' .. smachine.depth, 2, 6 + fontheight )
         else
-          love.graphics.print('CURRENT="' .. smachine.tree.current.name .. '" state=' .. smachine.state .. ' depth=' .. smachine.depth, 8, 24 )
+          love.graphics.print('CURRENT="' .. smachine.tree.current.name .. '" state=' .. smachine.state .. ' depth=' .. smachine.depth, 2, 6 + fontheight )
         end        
       end
     end
@@ -932,15 +956,13 @@ function love.draw ()
     smachine.tree:display( smachine.tree.root )
   
     if smachine.state == "desc" then
-      love.graphics.circle("fill", smachine.tree.current.x + smachine.tree.current.xlen/2, 
-        smachine.tree.current.y + 22, 8 )
+      love.graphics.circle("fill", smachine.tree.current.x + smachine.tree.current.xlen/2, smachine.tree.current.y + 1.5*fontheight, fontheight/2 )
     elseif smachine.state == "wait" then
-      love.graphics.circle("fill", smachine.tree.current.x + smachine.tree.current.xlen + 8, 
-        smachine.tree.current.y + 6, 8 )
+      love.graphics.circle("fill", smachine.tree.current.x + smachine.tree.current.xlen + fontheight/2, smachine.tree.current.y + fontheight/2, fontheight/2 )
     end
     
   else
-    love.graphics.circle("fill", 20, 78, 8 )    
+    love.graphics.circle("fill", 16, 22 + 4 * fontheight, fontheight/2 )    
   end
   
 end
