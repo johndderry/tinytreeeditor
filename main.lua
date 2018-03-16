@@ -203,7 +203,6 @@ function SynTree:setRowPosition( x, y, node, depth )
   while node do
     returning = false
     newx = x
-    --namelen = 7 * (#node.name + 2)
     namelen = font:getWidth( '(' .. node.name .. ')' )
     if node.child then 
       newx = self:setRowPosition( x, y + 1.5*fontheight, node.child, depth + 1 )
@@ -314,6 +313,40 @@ function SynTree:search( node, str )
 end
 
 -------------------------------------------------------------
+--  Cursor class
+-------------------------------------------------------------
+
+Cursor = {}
+
+function Cursor:new(o)
+  o = o or {}
+  setmetatable(o, self)
+  self.__index = self
+  o.active = false
+  o.x, o.y = 8, 0
+  o.count, o.max = 200, 200
+  return o
+end
+
+function Cursor:on()
+  self.r, self.g, self.b = self.colorOn.r, self.colorOn.g, self.colorOn.b
+end
+
+function Cursor:off()
+  self.r, self.g, self.b = self.colorOff.r, self.colorOff.g, self.colorOff.b
+end
+
+function Cursor:update()
+  self.count = self.count - 1
+  if self.count < 0 then
+    self.count = self.max
+    if self.active then self:off()
+    else self:on() end
+    self.active = not self.active
+  end
+end
+
+-------------------------------------------------------------
 --  smachine State Machine
 -------------------------------------------------------------
 
@@ -417,7 +450,7 @@ smachine.nextState = function ( input, node )
   return node
 end
 
-function smachine.travParseAdd( pnode, subname, fullname )
+smachine.travParseAdd = function( pnode, subname, fullname )
 
   local chr = subname:sub( 1, 1 )
   local restof = subname:sub(2)
@@ -439,7 +472,7 @@ function smachine.travParseAdd( pnode, subname, fullname )
   
 end
 
-function smachine.mkRefTables( node )
+smachine.mkRefTables = function( node )
     
   if node == nil then return end
   
@@ -454,15 +487,6 @@ function smachine.mkRefTables( node )
   end
   
 end
-
--------------------------------------------------------------
---  cursor Cursor
--------------------------------------------------------------
-
-cursor = {}
-cursor.x = 8
-cursor.color, cursor.altcolor = {}, {}
-cursor.r, cursor.g, cursor.b = 60, 0, 128
 
 -------------------------------------------------------------
 --  love Event Handlers defined
@@ -486,9 +510,16 @@ function love.load( arg )
   love.window.setTitle( "(Tiny) Tree Editor" )
   
   font = love.graphics.setNewFont( 16 )
-  fontheight = font:getHeight(); cursor.height = fontheight
+  fontheight = font:getHeight()
+  
+  cursor = Cursor:new( { colorOn={60,0,128}, colorOff={0,128,128} } )
+  --errcursor = Cursor:new( {colorOn={128,60,0}, colorOff={128,0,128} })
+
+  cursor.height = fontheight
   cursor.width = 12
   cursor.y = 14 + 3*fontheight
+  cursor:on()
+  
   treeYbegin = 16 + 4*fontheight
   
   if love.filesystem.exists("Blurb1.png") and love.filesystem.exists("Blurb2.png") and 
@@ -884,8 +915,10 @@ function love.update()
       if smachine.tree.xhi > screenX*0.8 then scrollX = scrollX - screenX*0.2 end
       if smachine.tree.yhi > screenY*0.8 then scrollY = scrollY - screenY*0.2 end
     end
-    
   end
+  
+  cursor:update()
+  
 end
 
 function love.draw()  
