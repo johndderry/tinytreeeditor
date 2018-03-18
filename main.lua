@@ -43,7 +43,7 @@ function SynTree:attach( parent, atpoint, name )
   node.depth = smachine.depth
   if parent == nil and atpoint == nil then
     node.selected = true
-    self.root, self.select = node, node
+    self.root, self.current, self.select = node, node, node
   else
     node.next = atpoint.next
     if atpoint.next then 
@@ -115,85 +115,6 @@ function SynTree:paste( node )
   end
 end
 
-function SynTree:load( node, chunk )
-  local num, limit = 1, #chunk
-  local definition = ""
-  
-  for num = 1, limit do
-    key = string.sub( chunk, num, num )
-    
-    if key == '{' then 
-      defmode = true
-    elseif defmode then
-      if key == '}' then
-        defmode = false
-        if smachine.tree.current then
-          smachine.tree.current.meaning = definition
-        end
-        definition = ""
-      else
-        definition = definition .. key
-      end
-    end
-    
-    if not defmode and key ~= '}' then  
-
-      if key == '\t' or key == '\n' then
-        if #input > 0 then 
-          smachine.tree.current = smachine.nextState( input, smachine.tree.current )
-          input = ''
-        end
-        smachine.tree.current = smachine.nextState( key, smachine.tree.current )
-      else
-        input = input .. key
-      end
-    end
-  end
-end
-
-function SynTree:altdump( node )
-  
-  local tmps = ' { name: "' .. node.name .. '",' 
-  
-  if node.meaning then
-    tmps = tmps .. ' meaning: "' .. node.meaning .. '",'
-  end
-  
-  if node.child then
-    tmps = tmps .. ' child:' .. self:altdump( node.child ) 
---  else
---    tmps = tmps .. ' }'
-  end
-  
-  if node.next then
-    tmps = tmps .. ' next:' .. self:altdump( node.next )
-  end
-  
-  return tmps .. ' }'
-end
-  
-function SynTree:dump( node )
-  
-  local tmps = node.name
-  local nxt = node.next
-  
-  if node.meaning then
-    tmps = tmps .. '{' .. node.meaning .. '}'
-  end
-  
-  if node.child then
-    tmps = tmps .. '\n' .. self:dump( node.child ) .. '\t'
-  else
-    tmps = tmps .. '\t'
-  end
-  
-  while nxt do
-    tmps = tmps .. self:dump( nxt )
-    nxt = nxt.next
-  end
-  
-  return tmps
-end
   
 function SynTree:setRowPosition( x, y, node, depth )
   local first, namelen = true, 0
@@ -312,6 +233,18 @@ function SynTree:search( node, str )
   return nil
 end
 
+function SynTree:isSibling( node, name )
+
+  while node do      
+    if node.name == name then
+      return node
+    end
+    node = node.next
+  end
+  
+  return nil
+end
+
 -------------------------------------------------------------
 --  Cursor class
 -------------------------------------------------------------
@@ -346,6 +279,62 @@ function Cursor:update()
       self.altmode = not self.altmode
     end
   end  
+end
+
+-------------------------------------------------------------
+--  keystroke State Machine
+-------------------------------------------------------------
+
+keystroke = {}
+keystroke.depth = 0
+keystroke.state = "pass"
+keystroke.input = ""
+
+keystroke.nextState = function( key, node )
+  
+  if keystroke.state == "pass" then 
+    if key == "backspace" then
+      keystroke.input = string.sub( keystroke.input, 1, #keystroke.input - 1 )
+      keystroke.depth = keystroke.depth + 1
+      return node
+    end
+    if key == "\n" or key == "\t" then
+      keystroke.depth = 0
+      keystroke.input = ''
+      return node
+    end
+    keystroke.input = keystroke.input .. key
+    keystroke.depth = keystroke.depth + 1
+    return node
+  end
+    
+  if keystroke.state == "init" then
+    keystroke.state = "cont"
+    node = keystroke.tree.root
+    keystroke.tree.current = node
+  end
+  if keystroke.state == "cont" or keystroke.state == "error" then
+    
+    if key == "backspace" then
+      keystroke.input = string.sub( keystroke.input, 1, #keystroke.input - 1 )
+      keystroke.depth = keystroke.depth + 1
+      return node.parent
+    end
+
+    local tmpn = keystroke.tree:isSibling( node, key )
+    if tmpn == nil then
+      keystroke.state = "error"
+      keystroke.cursor:on()
+      return node
+    end
+    keystroke.state = "cont"
+    keystroke.depth = keystroke.depth + 1
+    keystroke.cursor:off()    
+    
+    keystroke.input = keystroke.input .. key
+    return tmpn.child
+  end
+  
 end
 
 -------------------------------------------------------------
@@ -452,24 +441,30 @@ smachine.nextState = function ( input, node )
   return node
 end
 
-smachine.travParseAdd = function( pnode, subname, fullname )
+smachine.travParseAdd = function( node, parent, subname, fullname )
 
   local chr = subname:sub( 1, 1 )
   local restof = subname:sub(2)
   local lastnode = nil
   
-  while pnode and pnode.name ~= chr do
-    lastnode = pnode
-    pnode = pnode.next
+  while node and node.name ~= chr do
+    lastnode = node
+    node = node.next
   end
-  if pnode == nil then
-    pnode = smachine.refparse:attach( lastnode.parent, lastnode, chr )
+  if node == nil then
+    if lastnode then
+      node = keystroke.tree:attach( parent, lastnode, chr )
+    elseif parent == nil then
+      node = keystroke.tree:attach( nil, nil, chr )
+    else
+      node = keystroke.tree:attachChild( parent, chr )
+    end
   end
     
   if #restof > 0 then
-    smachine.travParseAdd( pnode, restof, fullname )
+    smachine.travParseAdd( node.child, node, restof, fullname )
   else
-    pnode.meaning = fullname
+    node.meaning = fullname
   end
   
 end
@@ -484,10 +479,84 @@ smachine.mkRefTables = function( node )
   
   while node do
     smachine.refindex[node.name] = node
-    smachine.travParseAdd( smachine.refparse, node.name, node.name )
+    smachine.travParseAdd( keystroke.tree.root, nil, node.name, node.name )
     node = node.next
   end
   
+end
+
+smachine.load = function( node, chunk )
+  local key, num, limit = nil, 1, #chunk
+  local defmode, definition = false, ""
+  
+  for num = 1, limit do
+    key = string.sub( chunk, num, num )
+    
+    if key == '{' then 
+      defmode = true
+    elseif defmode then
+      if key == '}' then
+        defmode = false
+        if smachine.tree.current then
+          smachine.tree.current.meaning = definition
+        end
+        definition = ""
+      else
+        definition = definition .. key
+      end
+    end
+    
+    if not defmode and key ~= '}' then  
+
+      if key == '\t' or key == '\n' then
+        if #keystroke.input > 0 then 
+          smachine.tree.current = smachine.nextState( keystroke.input, smachine.tree.current )
+          keystroke.input = ''
+        end
+        smachine.tree.current = smachine.nextState( key, smachine.tree.current )
+      else
+        keystroke.input = keystroke.input .. key
+      end
+    end
+  end
+end
+
+smachine.altdump = function( node )
+  
+  local tmps = ' { name: "' .. node.name .. '",' 
+  
+  if node.meaning then
+    tmps = tmps .. ' meaning: "' .. node.meaning .. '",'
+  end
+  if node.child then
+    tmps = tmps .. ' child:' .. smachine.altdump( node.child ) 
+  end
+  if node.next then
+    tmps = tmps .. ' next:' .. smachine.altdump( node.next )
+  end
+  
+  return tmps .. ' }'
+end
+  
+smachine.dump = function( node )
+  
+  local tmps = node.name
+  local nxt = node.next
+  
+  if node.meaning then
+    tmps = tmps .. '{' .. node.meaning .. '}'
+  end
+  if node.child then
+    tmps = tmps .. '\n' .. smachine.dump( node.child ) .. '\t'
+  else
+    tmps = tmps .. '\t'
+  end  
+  while nxt do
+    tmps = tmps .. smachine.dump( nxt )
+    nxt = nxt.next
+  end
+  
+  return tmps
 end
 
 -------------------------------------------------------------
@@ -500,7 +569,7 @@ MyShift = {[","]="<", ["."]=">", ["/"]="?", [";"]=":", ["'"]='"',
            ["7"]="&", ["8"]="*", ["9"]="(", ["0"]=")", ["-"]="_", ["="]="+" }
 blurb = 3
 scrollX, scrollY = 0, 0
-input, definition, filename, searchstr, message = "", "", "", "", nil
+definition, filename, searchstr, message = "", "", "", nil
 shift, defmode, editmode, autoscroll = false, false, false, true
 floadmode, fsavemode, falt, searchmode, mousehold = false, false, false, false, false
 
@@ -536,6 +605,7 @@ function love.keypressed( key )
     else blurb = blurb - 1
     end  
   end
+  showparse = false
 end
 
 function love.keyreleased( key ) 
@@ -625,7 +695,7 @@ function love.keyreleased( key )
       end
       local ss = file:read("*all"); file:close()
       smachine.tree.root = nil
-      smachine.tree:load( smachine.tree.root, ss )
+      smachine.load( smachine.tree.root, ss )
       return
     elseif key == 'escape' then
       floadmode = false
@@ -651,9 +721,9 @@ function love.keyreleased( key )
       fsavemode = false
       local ss
       if falt then
-        ss = 'root =' .. smachine.tree:altdump( smachine.tree.root ) .. ';'
+        ss = 'root =' .. smachine.altdump( smachine.tree.root ) .. ';'
       else
-        ss = smachine.tree:dump( smachine.tree.root )
+        ss = smachine.dump( smachine.tree.root )
       end
       local file = io.open(filename, "w+")
       if file == nil then
@@ -678,15 +748,25 @@ function love.keyreleased( key )
   end
     
   if key == 'f3' then
-    local tmp
-      tmp = smachine.reference
-      smachine.tree.state = smachine.state
-      smachine.reference = smachine.tree 
-      smachine.tree = tmp
-      smachine.state = tmp.state
-      smachine.refindex = {}
-      smachine.refparse = SynTree:new()
-      smachine.mkRefTables( smachine.reference.root )
+    if shift then
+      if keystroke.state == "pass" then
+        keystroke.state = "init"
+      else
+        keystroke.state = "pass" 
+      end
+      return
+    end
+    local tmp = smachine.reference
+    smachine.tree.state = smachine.state
+    smachine.reference = smachine.tree 
+    smachine.tree = tmp
+    smachine.state = tmp.state
+    smachine.refindex = {}
+    
+    keystroke.tree = SynTree:new()
+    
+    smachine.mkRefTables( smachine.reference.root )
+    showparse = true
     return
   end
   
@@ -733,12 +813,12 @@ function love.keyreleased( key )
     
   if key == '\\' and not editmode and smachine.tree.select then
     editmode = true;
-    input = smachine.tree.select.name 
+    keystroke.input = smachine.tree.select.name 
     return
   end
   if key == '\\' and editmode then 
     editmode = false
-    input = ''
+    keystroke.input = ''
     return
   end
   
@@ -757,7 +837,7 @@ function love.keyreleased( key )
       defmode = false
       if editmode then
         smachine.tree.select.meaning = definition
-        input = ''
+        keystroke.input = ''
         editmode = false
       else        
         if smachine.tree.current then 
@@ -767,7 +847,7 @@ function love.keyreleased( key )
       definition = ""
       return
     end
-    if key == 'return' or key == 'space' or key == 'tab' then key = '  '
+    if key == 'return' or key == 'space' or key == 'tab' then key = ' '
     elseif key == 'backspace' then
       if #definition > 0 then
         definition = string.sub( definition, 1, #definition - 1 )
@@ -786,62 +866,46 @@ function love.keyreleased( key )
   end
   
   --
-  -- now we call the state machine or save keystroke
+  -- now we call one of the state machines
   --
   autoscroll = true
   
   if key == 'backspace' then
-    if #input > 0 then
-      input = string.sub( input, 1, #input - 1 )
+    if #keystroke.input > 0 then
+      keystroke.current = keystroke.nextState( key, keystroke.current )
       return
     end
     smachine.tree.current = smachine.nextState( key, smachine.tree.current )
     return
   end
 
-  if key == 'tab' then
-    if #input > 0 then 
+  if key == 'tab' or key == 'return' then
+    if key == 'tab' then key = '\t'
+    else key = '\n' end
+  
+    if #keystroke.input > 0 then 
       if editmode then
-        smachine.tree.select.name = input
+        smachine.tree.select.name = keystroke.input
         editmode = false
         return
       else
-        smachine.tree.current = smachine.nextState( input, smachine.tree.current )
+        smachine.tree.current = smachine.nextState( keystroke.input, smachine.tree.current )
       end
-      input = ''
+      keystroke.current = keystroke.nextState( key, keystroke.current )
     end
-    smachine.tree.current = smachine.nextState( '\t', smachine.tree.current )
+    smachine.tree.current = smachine.nextState( key, smachine.tree.current )
     return
   end
   
-  if key == 'return' then 
-    if #input > 0 then 
-      if editmode then
-        smachine.tree.select.name = input
-        editmode = false
-      else
-        smachine.tree.current = smachine.nextState( input, smachine.tree.current )
-      end
-      input = ''    
-    end
-    smachine.tree.current = smachine.nextState( '\n', smachine.tree.current )
-    return
-  end
-  
-  if key == 'space' then
-    input = input .. ' '
-    return
-  end
-  if shift then
+  if key == 'space' then key = ' '
+  elseif shift then
     local k = MyShift[key]
-    if k then
-      input = input .. k
-    else
-      input = input .. key:upper()
-    end    
-    return
+    if k then key = k
+    else      key = key:upper() end    
   end
-  input = input .. key
+  
+  keystroke.current = keystroke.nextState( key, keystroke.current )
+  
 end
   
 function love.mousepressed( x, y, button )
@@ -881,21 +945,31 @@ end
 
 function love.load( arg )
   
-  if arg and arg[#arg] == "-debug" then require("mobdebug").start() end
+  fontsize = 12
+  if arg then
+    if arg[#arg] == "-debug" then require("mobdebug").start() end
+    local argn
+    for argn = 2, #arg do
+      local a = arg[argn]
+      if a == "-fontsize" then
+        argn = argn + 1
+        fontsize = tonumber( arg[argn] )
+      end
+    end
+  end
   
-  screenX, screenY  = love.graphics.getWidth(), love.graphics.getHeight()
+  screenX, screenY  = love.graphics.getDimensions()
   love.window.setTitle( "(Tiny) Tree Editor" )
   
-  font = love.graphics.setNewFont( 12 )
+  font = love.graphics.setNewFont( fontsize )
   fontheight = font:getHeight()
   
-  cursor = Cursor:new( { colorOn={r=128,g=0,b=200}, colorOff={r=0,g=128,b=200} } )
-  
-  cursor.height = fontheight
-  cursor.width = 12
-  cursor.y = 14 + 3*fontheight
-  cursor:on()
-  
+  keystroke.cursor = Cursor:new( { colorOn={r=128,g=0,b=200}, colorOff={r=0,g=128,b=200} } )
+  keystroke.cursor.height = fontheight
+  keystroke.cursor.width = fontsize
+  keystroke.cursor.y = 14 + 3*fontheight
+  keystroke.cursor:off()
+
   treeYbegin = 16 + 4*fontheight
   
   if love.filesystem.exists("Blurb1.png") and love.filesystem.exists("Blurb2.png") and 
@@ -911,6 +985,12 @@ end
 
 function love.update()
   
+  if showparse and keystroke.tree and keystroke.tree.current then
+    keystroke.tree.xhi, keystroke.tree.yhi = 0, 0
+    keystroke.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, keystroke.tree.root, 1)
+    return
+  end
+    
   if smachine.tree.root then
     smachine.tree.xhi, smachine.tree.yhi = 0, 0
     smachine.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, smachine.tree.root, 1 )
@@ -921,7 +1001,7 @@ function love.update()
     end
   end
   
-  cursor:update()
+  keystroke.cursor:update()
   
 end
 
@@ -938,16 +1018,19 @@ function love.draw()
     return
   end
 
+  love.graphics.setColor( 0, 25, 60 )
+  love.graphics.rectangle( "fill", 0, 0, screenX, screenY )
+  
   love.graphics.setColor( 100, 50, 0, 255 )
   love.graphics.rectangle( "fill", 0, 0, screenX, fontheight + 4 )
   
   love.graphics.setColor( 0, 100, 50, 255 )
   love.graphics.rectangle( "fill", 0, fontheight + 4, screenX, fontheight + 4  )
   
-  cursor.x = 8 + font:getWidth( input )
+  keystroke.cursor.x = 8 + font:getWidth( keystroke.input )
   
-  love.graphics.setColor( cursor.r, cursor.g, cursor.b, 255 )
-  love.graphics.rectangle("fill", cursor.x, cursor.y, cursor.width, cursor.height )
+  love.graphics.setColor( keystroke.cursor.r, keystroke.cursor.g, keystroke.cursor.b, 255 )
+  love.graphics.rectangle("fill", keystroke.cursor.x, keystroke.cursor.y, keystroke.cursor.width, keystroke.cursor.height )
   
   love.graphics.setColor( 255, 255, 255, 255 )
   
@@ -966,14 +1049,18 @@ function love.draw()
     love.graphics.print( "Enter WORDS `enter' to descend and `tab' to remain at that level. Use `{' your_meaning `}' to add meaning. Shift=more help", 2, 2) 
   end
 
-  if #input > 0 then
-    love.graphics.print( input, 8, 14 + 3*fontheight )
+  if #keystroke.input > 0 then
+    love.graphics.print( keystroke.input, 8, 14 + 3*fontheight )
   end
   if defmode then
     love.graphics.print('{' .. definition, 8, 10 + 2 * fontheight )
   end
 
-  if smachine.tree.current then
+  if showparse and keystroke.tree and keystroke.tree.current then
+    keystroke.tree:display(keystroke.tree.root)
+    return
+    
+  elseif smachine.tree.current then
     if not shift then
       if editmode then
         if smachine.tree.select.meaning then
