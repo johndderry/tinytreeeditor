@@ -4,564 +4,8 @@
 --    Version: 1.0
 --    No Rights Reserved
 -------------------------------------------------------------
-
--------------------------------------------------------------
---  SynNode class 
--------------------------------------------------------------
-
-SynNode = {}
-
-function SynNode:new(parent)
-  o = {}
-  setmetatable(o, self)
-  self.__index = self  
-  o.next, o.prev, o.child = nil, nil, nil
-  o.parent = parent
-  o.name = "Node"
-  o.selected = false
-  return o
-end
-
--------------------------------------------------------------
---  SynTree class
--------------------------------------------------------------
-
-SynTree = {}
-
-function SynTree:new()
-  o = {}
-  setmetatable(o, self)
-  self.__index = self
-  self.root, self.current, self.select = nil, nil, nil
-  self.state = "init"
-  return o
-end
-
-function SynTree:attach( parent, atpoint, name )
-  local node = SynNode:new( parent )
-  node.name = name
-  node.depth = smachine.depth
-  if parent == nil and atpoint == nil then
-    node.selected = true
-    self.root, self.current, self.select = node, node, node
-  else
-    node.next = atpoint.next
-    if atpoint.next then 
-      atpoint.next.prev = node
-    end
-    
-    atpoint.next = node
-    node.prev = atpoint
-  end
-  return node  
-end
-  
-function SynTree:attachChild( parent, name )
-  if parent == nil then return nil end
-  
-  local node = SynNode:new( parent )
-  node.name = name
-  node.depth = smachine.depth
-  node.next = parent.child
-  parent.child = node 
-  
-  return node
-end
-
-function inTree( node, test )
-  if node.child then 
-    if inTree( node.child, test ) then return true end
-  end
-  while node do
-    if node == test then return true end
-    node = node.next
-  end
-  return false
-end  
-  
-function SynTree:cut( node )
-  if inTree( node, self.current ) then
-    self.current = node.parent
-    smachine.depth = smachine.depth -1
-  end
-  self.cutbuffer = node
-  if node.prev then
-    node.prev.next = node.next
-  end
-  if node.next then 
-    node.next.prev = node.prev
-  end
-  node.next, node.prev = nil, nil
-  if node.parent then
-    if node.parent.child == node then
-      node.parent.child = nil
-    end
-  end
-end
-
-function SynTree:paste( node )
-  if self.cutbuffer == nil then return end
-  
-  -- displace 'node' approach
-  self.cutbuffer.next = node
-  self.cutbuffer.prev = node.prev
-  if node.prev then 
-    node.prev.next = self.cutbuffer
-  end
-  node.prev = self.cutbuffer
-  self.cutbuffer.parent = node.parent
-  if node.parent and node.parent.child == node then 
-    node.parent.child = self.cutbuffer
-  end
-end
-
-  
-function SynTree:setRowPosition( x, y, node, depth )
-  local first, namelen = true, 0
-  local newx, returning
-  local spacing = 4
-  
-  while node do
-    returning = false
-    newx = x
-    namelen = font:getWidth( '(' .. node.name .. ')' )
-    if node.child then 
-      newx = self:setRowPosition( x, y + 1.5*fontheight, node.child, depth + 1 )
-      returning = true
-    end
-    
-    node.depth = depth
-    
-    if returning then
-      node.x = x
-      x = newx
-      returning = false
-    else
-      node.x = x
-    end
-    node.xlen = namelen
-    node.y = y
-    
-    if node.x + node.xlen > self.xhi then
-      self.xhi = node.x + node.xlen
-    end
-    if node.y > self.yhi then 
-      self.yhi = node.y
-    end
-        
-    x = x + namelen + spacing
-    node = node.next
-  end
-  return x - (namelen + spacing)
-end
-
-function SynTree:display( node )
-  
-  local tnode, lastnode = nil
-  while node do
-    
-    if lastnode then
-      love.graphics.line(lastnode.x + font:getWidth('('..lastnode.name..')'), node.y+fontheight/2, node.x, node.y+fontheight/2 )
-    end
-    
-    if node.child then
-      self:display( node.child )
-      if node.x >= 0 and node.x < screenX and node.y >= treeYbegin and node.y < screenY then
-        love.graphics.line(node.child.x + node.child.xlen/2, node.child.y,
-          node.x + node.xlen/2, node.y + fontheight )
-      end
-    end
-    
-    if node.x >= 0 and node.x < screenX and node.y >= treeYbegin and node.y < screenY then 
-      if node.selected then
-        --local r, g, b, a = love.graphics.getColor()
-        love.graphics.rectangle("fill", node.x, node.y, node.xlen, fontheight )
-        love.graphics.setColor( 0, 0, 0, 255 ) 
-        love.graphics.print( '('.. node.name ..')', node.x, node.y )
-        --love.graphics.setColor( r, g, b, a ) 
-        love.graphics.setColor( 255, 255, 255, 255 ) 
-      else  
-        love.graphics.print( '('.. node.name ..')', node.x, node.y )
-      end
-    end
-    
-    lastnode = node
-    node = node.next
-  end
-
-  return tnode
-end
-
-function SynTree:locate( node, x, y )
-  
-  local fnode = nil
-  while node do
-  
-    if node.child then
-      fnode = self:locate( node.child, x, y )
-      if fnode then return fnode end
-    end
-    
-    if x >= node.x and x <= node.x + node.xlen and
-       y >= node.y and y <= node.y + 12 then
-      return node
-    end
-    
-    node = node.next
-  end
-  
-  return nil
-end
-
-function SynTree:search( node, str )
-  
-  local fnode = nil
-  while node do
-  
-    if node.child then
-      fnode = self:search( node.child, str )
-      if fnode then return fnode end
-    end
-    
-    if node.name == str then
-      return node
-    end
-    
-    node = node.next
-  end
-  
-  return nil
-end
-
-function SynTree:isSibling( node, name )
-
-  while node do      
-    if node.name == name then
-      return node
-    end
-    node = node.next
-  end
-  
-  return nil
-end
-
--------------------------------------------------------------
---  Cursor class
--------------------------------------------------------------
-
-Cursor = {}
-
-function Cursor:new(o)
-  o = o or {}
-  setmetatable(o, self)
-  self.__index = self
-  o.altmode, o.active = false, false
-  o.x, o.y = 8, 0
-  o.count, o.max = 100, 100
-  return o
-end
-
-function Cursor:on()
-  self.r, self.g, self.b = self.colorOn.r, self.colorOn.g, self.colorOn.b
-end
-
-function Cursor:off()
-  self.r, self.g, self.b = self.colorOff.r, self.colorOff.g, self.colorOff.b
-end
-
-function Cursor:update()
-  self.count = self.count - 1
-  if self.count < 0 then
-    self.count = self.max
-    if active then
-      if self.altmode then self:off()
-      else self:on() end
-      self.altmode = not self.altmode
-    end
-  end  
-end
-
--------------------------------------------------------------
---  keystroke State Machine
--------------------------------------------------------------
-
-keystroke = {}
-keystroke.depth = 0
-keystroke.state = "pass"
-keystroke.input = ""
-
-keystroke.nextState = function( key, node )
-  
-  if keystroke.state == "pass" then 
-    if key == "backspace" then
-      keystroke.input = string.sub( keystroke.input, 1, #keystroke.input - 1 )
-      keystroke.depth = keystroke.depth + 1
-      return node
-    end
-    if key == "\n" or key == "\t" then
-      keystroke.depth = 0
-      keystroke.input = ''
-      return node
-    end
-    keystroke.input = keystroke.input .. key
-    keystroke.depth = keystroke.depth + 1
-    return node
-  end
-    
-  if keystroke.state == "init" then
-    keystroke.state = "cont"
-    node = keystroke.tree.root
-    keystroke.tree.current = node
-  end
-  if keystroke.state == "cont" or keystroke.state == "error" then
-    
-    if key == "backspace" then
-      keystroke.input = string.sub( keystroke.input, 1, #keystroke.input - 1 )
-      keystroke.depth = keystroke.depth + 1
-      return node.parent
-    end
-
-    local tmpn = keystroke.tree:isSibling( node, key )
-    if tmpn == nil then
-      keystroke.state = "error"
-      keystroke.cursor:on()
-      return node
-    end
-    keystroke.state = "cont"
-    keystroke.depth = keystroke.depth + 1
-    keystroke.cursor:off()    
-    
-    keystroke.input = keystroke.input .. key
-    return tmpn.child
-  end
-  
-end
-
--------------------------------------------------------------
---  smachine State Machine
--------------------------------------------------------------
-
-smachine = {}
-smachine.depth = 0
-smachine.state = "init"
-smachine.tree = SynTree:new()
-smachine.reference = SynTree:new()
-smachine.refindex, smachine.refparse = nil, nil
-
-smachine.nextState = function ( input, node ) 
-  
-  if smachine.state == "init" then
-    
-    if input == '\n' or input == '\t' or input == 'backspace' then 
-      return nil
-    end
-    
-    smachine.state = "desc"
-    smachine.depth = 1;
-    -- ignore the parent node passed as this will be the root node
-    return smachine.tree:attach( nil, nil, input )
-  end
-  
-  if smachine.state == "desc" then
-    
-    if input == '\n' then
-      return node
-    end
-    
-    if input == '\t' then
-      smachine.state = "wait"
-      return node
-    end
-    
-    if input == 'backspace' then      
-      smachine.tree:cut( node )
-      if node.prev then return node.prev
-      elseif node.parent then
-        return node.parent
-      else
-        smachine.level = 0
-        smachine.state = "init"
-        smachine.root = nil
-        return nil
-      end
-    end
-    
-    smachine.depth = smachine.depth + 1
-    return smachine.tree:attachChild( node, input )
-  end
-  
-  if smachine.state == "wait" then
-    
-    if input == '\n' then
-      local nxt
-      if node.child then
-        smachine.depth = smachine.depth + 1
-        nxt = node.child
-        while nxt.next do nxt = nxt.next end
-        return nxt
-      else
-        smachine.state = "desc"        
-        return node
-      end
-    end
-    
-    if input == '\t' then
-      if smachine.depth == 1 then return node end
-      
-      smachine.depth = smachine.depth - 1
-      if smachine.depth == 0  then
-        smachine.state = "init"
-        smachine.root = nil
-        return nil
-      else
-        smachine.state = "wait"
-        return node.parent
-      end
-    end
-    
-    if input == 'backspace' then      
-      smachine.tree:cut( node )
-      smachine.state = "desc"
-      if node.prev then return node.prev
-      elseif node.parent then
-        return node.parent
-      else
-        smachine.level = 0
-        smachine.state = "init"
-        smachine.tree.root = nil
-        return nil        
-      end
-    end
-    
-    smachine.state = "desc"
-    return smachine.tree:attach( node.parent, node, input )
-  end
-  
-  -- fall thru must be error mode
-  return node
-end
-
-smachine.travParseAdd = function( node, parent, subname, fullname )
-
-  local chr = subname:sub( 1, 1 )
-  local restof = subname:sub(2)
-  local lastnode = nil
-  
-  while node and node.name ~= chr do
-    lastnode = node
-    node = node.next
-  end
-  if node == nil then
-    if lastnode then
-      node = keystroke.tree:attach( parent, lastnode, chr )
-    elseif parent == nil then
-      node = keystroke.tree:attach( nil, nil, chr )
-    else
-      node = keystroke.tree:attachChild( parent, chr )
-    end
-  end
-    
-  if #restof > 0 then
-    smachine.travParseAdd( node.child, node, restof, fullname )
-  else
-    node.meaning = fullname
-  end
-  
-end
-
-smachine.mkRefTables = function( node )
-    
-  if node == nil then return end
-  
-  if node.child then
-    smachine.mkRefTables( node.child )
-  end
-  
-  while node do
-    smachine.refindex[node.name] = node
-    smachine.travParseAdd( keystroke.tree.root, nil, node.name, node.name )
-    node = node.next
-  end
-  
-end
-
-smachine.load = function( node, chunk )
-  local key, num, limit = nil, 1, #chunk
-  local defmode, definition = false, ""
-  
-  for num = 1, limit do
-    key = string.sub( chunk, num, num )
-    
-    if key == '{' then 
-      defmode = true
-    elseif defmode then
-      if key == '}' then
-        defmode = false
-        if smachine.tree.current then
-          smachine.tree.current.meaning = definition
-        end
-        definition = ""
-      else
-        definition = definition .. key
-      end
-    end
-    
-    if not defmode and key ~= '}' then  
-
-      if key == '\t' or key == '\n' then
-        if #keystroke.input > 0 then 
-          smachine.tree.current = smachine.nextState( keystroke.input, smachine.tree.current )
-          keystroke.input = ''
-        end
-        smachine.tree.current = smachine.nextState( key, smachine.tree.current )
-      else
-        keystroke.input = keystroke.input .. key
-      end
-    end
-  end
-end
-
-smachine.altdump = function( node )
-  
-  local tmps = ' { name: "' .. node.name .. '",' 
-  
-  if node.meaning then
-    tmps = tmps .. ' meaning: "' .. node.meaning .. '",'
-  end
-  if node.child then
-    tmps = tmps .. ' child:' .. smachine.altdump( node.child ) 
-  end
-  if node.next then
-    tmps = tmps .. ' next:' .. smachine.altdump( node.next )
-  end
-  
-  return tmps .. ' }'
-end
-  
-smachine.dump = function( node )
-  
-  local tmps = node.name
-  local nxt = node.next
-  
-  if node.meaning then
-    tmps = tmps .. '{' .. node.meaning .. '}'
-  end
-  if node.child then
-    tmps = tmps .. '\n' .. smachine.dump( node.child ) .. '\t'
-  else
-    tmps = tmps .. '\t'
-  end  
-  while nxt do
-    tmps = tmps .. smachine.dump( nxt )
-    nxt = nxt.next
-  end
-  
-  return tmps
-end
-
--------------------------------------------------------------
---  love Event Handlers defined
--------------------------------------------------------------
+require "classes"
+require "objects"
 
 MyShift = {[","]="<", ["."]=">", ["/"]="?", [";"]=":", ["'"]='"', 
            ["["]="{", ["]"]="}", ["\\"]="|",["`"]="~", ["1"]="!", ["2"]="@",
@@ -575,26 +19,30 @@ floadmode, fsavemode, falt, searchmode, mousehold = false, false, false, false, 
 
 function adjustSelectScroll()
   
-  while smachine.tree.select.x > screenX*0.8 or smachine.tree.select.x < 8 or
-      smachine.tree.select.y > screenY*0.8 or smachine.tree.select.y < treeYbegin do
+  while Syntax.tree.select.x > screenX*0.8 or Syntax.tree.select.x < 8 or
+      Syntax.tree.select.y > screenY*0.8 or Syntax.tree.select.y < treeYbegin do
     
     autoscroll = false
     
-    if smachine.tree.select.x > screenX*0.8 then
+    if Syntax.tree.select.x > screenX*0.8 then
       scrollX = scrollX - screenX*0.2 
-    elseif smachine.tree.select.x < 10 then
+    elseif Syntax.tree.select.x < 10 then
      scrollX = scrollX + screenX*0.2
     end
-    if smachine.tree.select.y > screenY*0.8 then
+    if Syntax.tree.select.y > screenY*0.8 then
       scrollY = scrollY - screenY*0.2 
-    elseif smachine.tree.select.y < treeYbegin then
+    elseif Syntax.tree.select.y < treeYbegin then
       scrollY = scrollY + screenY*0.2
     end
     
-    smachine.tree.xhi, smachine.tree.yhi = 0, 0
-    smachine.tree:setRowPosition( 10 + scrollX, treeYbegin + scrollY, smachine.tree.root, 1 )
+    Syntax.tree.xhi, Syntax.tree.yhi = 0, 0
+    Syntax.tree:setRowPosition( 10 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
   end
 end
+
+---------------------------------------------------------------------
+-- key event handlers
+---------------------------------------------------------------------
 
 function love.keypressed( key )
   if key == 'lshift' or key == 'rshift' then
@@ -609,7 +57,7 @@ function love.keypressed( key )
 end
 
 function love.keyreleased( key ) 
-  local p = smachine.tree.select
+  local p = Syntax.tree.select
     
   if blurb > 0 then return 
   elseif blurb == 0 then
@@ -624,8 +72,8 @@ function love.keyreleased( key )
   
   if key == 'home' and p then
     p.selected = false
-    smachine.tree.select = smachine.tree.root
-    smachine.tree.select.selected = true
+    Syntax.tree.select = Syntax.tree.root
+    Syntax.tree.select.selected = true
     adjustSelectScroll()
     return
   end
@@ -637,7 +85,7 @@ function love.keyreleased( key )
     p.selected = false
     p = p.child
     p.selected = true
-    smachine.tree.select = p
+    Syntax.tree.select = p
     adjustSelectScroll()
     return
   end
@@ -645,7 +93,7 @@ function love.keyreleased( key )
     p.selected = false
     p = p.parent
     p.selected = true
-    smachine.tree.select = p
+    Syntax.tree.select = p
     adjustSelectScroll()
     return
   end
@@ -653,7 +101,7 @@ function love.keyreleased( key )
     p.selected = false
     p = p.prev
     p.selected = true
-    smachine.tree.select = p
+    Syntax.tree.select = p
     adjustSelectScroll()
     return
   end
@@ -661,23 +109,23 @@ function love.keyreleased( key )
     p.selected = false
     p = p.next
     p.selected = true
-    smachine.tree.select = p
+    Syntax.tree.select = p
     adjustSelectScroll()
     return
   end
   
-  if key == 'delete' and smachine.tree.select then
-    local newselect = smachine.tree.select.parent
+  if key == 'delete' and Syntax.tree.select then
+    local newselect = Syntax.tree.select.parent
     if newselect == nil then return end
     
-    smachine.tree.select.selected = false
-    smachine.tree:cut( smachine.tree.select )
-    smachine.tree.select = newselect
+    Syntax.tree.select.selected = false
+    Syntax.tree:cut( Syntax.tree.select )
+    Syntax.tree.select = newselect
     newselect.selected = true
     return
   end
-  if key == 'insert' and smachine.tree.cutbuffer then
-    smachine.tree:paste( smachine.tree.select )
+  if key == 'insert' and Syntax.tree.cutbuffer then
+    Syntax.tree:paste( Syntax.tree.select )
     return
   end
   
@@ -694,8 +142,8 @@ function love.keyreleased( key )
         return
       end
       local ss = file:read("*all"); file:close()
-      smachine.tree.root = nil
-      smachine.load( smachine.tree.root, ss )
+      Syntax.tree.root = nil
+      Syntax.load( Syntax.tree.root, ss )
       return
     elseif key == 'escape' then
       floadmode = false
@@ -721,9 +169,9 @@ function love.keyreleased( key )
       fsavemode = false
       local ss
       if falt then
-        ss = 'root =' .. smachine.altdump( smachine.tree.root ) .. ';'
+        ss = 'root =' .. Syntax.altdump( Syntax.tree.root ) .. ';'
       else
-        ss = smachine.dump( smachine.tree.root )
+        ss = Syntax.dump( Syntax.tree.root )
       end
       local file = io.open(filename, "w+")
       if file == nil then
@@ -748,39 +196,16 @@ function love.keyreleased( key )
   end
     
   if key == 'f3' then
-    if shift then
-      if keystroke.state == "pass" then
-        keystroke.state = "init"
-      else
-        keystroke.state = "pass" 
-      end
-      return
-    end
-    local tmp = smachine.reference
-    smachine.tree.state = smachine.state
-    smachine.reference = smachine.tree 
-    smachine.tree = tmp
-    smachine.state = tmp.state
-    smachine.refindex = {}
-    
-    keystroke.tree = SynTree:new()
-    
-    smachine.mkRefTables( smachine.reference.root )
-    showparse = true
-    return
-  end
-  
-  if key == 'f4' then
     searchmode = true
     return
   end
   if searchmode then
     if key == 'return' then
       searchmode = false
-      local node = smachine.tree:search( smachine.tree.root, searchstr )
+      local node = Syntax.tree:search( Syntax.tree.root, searchstr )
       if node then
-        smachine.tree.select.selected = false
-        smachine.tree.select = node
+        Syntax.tree.select.selected = false
+        Syntax.tree.select = node
         node.selected = true
         message = "**located**"
       else      
@@ -804,6 +229,31 @@ function love.keyreleased( key )
     return
   end
   
+  if key == 'f4' then
+    if shift then
+      if Keystroke.state == "pass" then
+        Keystroke.cursor = Keystroke.altcursor
+        Keystroke.state = "init"
+      else
+        Keystroke.state = "pass" 
+        Keystroke.cursor = Keystroke.maincursor
+      end
+      return
+    end
+    local tmp = Syntax.reference
+    Syntax.tree.state = Syntax.state
+    Syntax.reference = Syntax.tree 
+    Syntax.tree = tmp
+    Syntax.state = tmp.state
+    Syntax.refindex = {}
+    
+    Keystroke.tree = SynTree:new()
+    
+    Syntax.mkRefTables( Syntax.reference.root )
+    showparse = true
+    return
+  end
+  
   if key == 'f10' then love.event.quit() return end
   --
   -- at this point filter out any key events we don't want to record
@@ -811,14 +261,14 @@ function love.keyreleased( key )
   if key == 'down' or key == 'up' or key == 'left' or key == 'right' or
      key == 'insert' or key == 'delete' or key == 'home' then return end
     
-  if key == '\\' and not editmode and smachine.tree.select then
+  if key == '\\' and not editmode and Syntax.tree.select then
     editmode = true;
-    keystroke.input = smachine.tree.select.name 
+    Keystroke.input = Syntax.tree.select.name 
     return
   end
   if key == '\\' and editmode then 
     editmode = false
-    keystroke.input = ''
+    Keystroke.input = ''
     return
   end
   
@@ -826,8 +276,8 @@ function love.keyreleased( key )
     
   if key == '[' and shift then 
     defmode = true
-    if editmode and smachine.tree.select.meaning then
-      definition = smachine.tree.select.meaning
+    if editmode and Syntax.tree.select.meaning then
+      definition = Syntax.tree.select.meaning
     end
     return 
   end 
@@ -836,12 +286,12 @@ function love.keyreleased( key )
     if key == ']' and shift then
       defmode = false
       if editmode then
-        smachine.tree.select.meaning = definition
-        keystroke.input = ''
+        Syntax.tree.select.meaning = definition
+        Keystroke.input = ''
         editmode = false
       else        
-        if smachine.tree.current then 
-          smachine.tree.current.meaning = definition
+        if Syntax.tree.current then 
+          Syntax.tree.current.meaning = definition
         end
       end
       definition = ""
@@ -871,29 +321,34 @@ function love.keyreleased( key )
   autoscroll = true
   
   if key == 'backspace' then
-    if #keystroke.input > 0 then
-      keystroke.current = keystroke.nextState( key, keystroke.current )
+    if #Keystroke.input > 0 then
+      Keystroke.current = Keystroke.nextState( key, Keystroke.current )
       return
     end
-    smachine.tree.current = smachine.nextState( key, smachine.tree.current )
+    Syntax.tree.current = Syntax.nextState( key, Syntax.tree.current )
     return
   end
 
   if key == 'tab' or key == 'return' then
+    
+    if Keystroke.state ~= "pass" and Keystroke.state ~= "valid" and Keystroke.state ~= "term" then
+      return
+    end
+    
     if key == 'tab' then key = '\t'
     else key = '\n' end
   
-    if #keystroke.input > 0 then 
+    if #Keystroke.input > 0 then 
       if editmode then
-        smachine.tree.select.name = keystroke.input
+        Syntax.tree.select.name = Keystroke.input
         editmode = false
         return
       else
-        smachine.tree.current = smachine.nextState( keystroke.input, smachine.tree.current )
+        Syntax.tree.current = Syntax.nextState( Keystroke.input, Syntax.tree.current )
       end
-      keystroke.current = keystroke.nextState( key, keystroke.current )
+      Keystroke.current = Keystroke.nextState( key, Keystroke.current )
     end
-    smachine.tree.current = smachine.nextState( key, smachine.tree.current )
+    Syntax.tree.current = Syntax.nextState( key, Syntax.tree.current )
     return
   end
   
@@ -904,15 +359,19 @@ function love.keyreleased( key )
     else      key = key:upper() end    
   end
   
-  keystroke.current = keystroke.nextState( key, keystroke.current )
+  Keystroke.current = Keystroke.nextState( key, Keystroke.current )
   
 end
   
+---------------------------------------------------------------------
+-- mouse event handlers
+---------------------------------------------------------------------
+
 function love.mousepressed( x, y, button )
   
   if button ~= 1 then return end
   
-  local node = smachine.tree:locate( smachine.tree.root, x, y )
+  local node = Syntax.tree:locate( Syntax.tree.root, x, y )
   if node then return end
   
   mousehold = true
@@ -934,14 +393,18 @@ function love.mousereleased( x, y, button )
   
   mousehold = false
   
-  local node = smachine.tree:locate( smachine.tree.root, x, y )
+  local node = Syntax.tree:locate( Syntax.tree.root, x, y )
   if node then
-    smachine.tree.select.selected = false
-    smachine.tree.select = node
+    Syntax.tree.select.selected = false
+    Syntax.tree.select = node
     node.selected = true
   end
   
 end
+
+---------------------------------------------------------------------
+-- load and update handlers
+---------------------------------------------------------------------
 
 function love.load( arg )
   
@@ -964,12 +427,8 @@ function love.load( arg )
   font = love.graphics.setNewFont( fontsize )
   fontheight = font:getHeight()
   
-  keystroke.cursor = Cursor:new( { colorOn={r=128,g=0,b=200}, colorOff={r=0,g=128,b=200} } )
-  keystroke.cursor.height = fontheight
-  keystroke.cursor.width = fontsize
-  keystroke.cursor.y = 14 + 3*fontheight
-  keystroke.cursor:off()
-
+  Keystroke.init()
+  
   treeYbegin = 16 + 4*fontheight
   
   if love.filesystem.exists("Blurb1.png") and love.filesystem.exists("Blurb2.png") and 
@@ -985,25 +444,29 @@ end
 
 function love.update()
   
-  if showparse and keystroke.tree and keystroke.tree.current then
-    keystroke.tree.xhi, keystroke.tree.yhi = 0, 0
-    keystroke.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, keystroke.tree.root, 1)
+  if showparse and Keystroke.tree and Keystroke.tree.current then
+    Keystroke.tree.xhi, Keystroke.tree.yhi = 0, 0
+    Keystroke.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Keystroke.tree.root, 1)
     return
   end
     
-  if smachine.tree.root then
-    smachine.tree.xhi, smachine.tree.yhi = 0, 0
-    smachine.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, smachine.tree.root, 1 )
+  if Syntax.tree.root then
+    Syntax.tree.xhi, Syntax.tree.yhi = 0, 0
+    Syntax.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
     
     if autoscroll then
-      if smachine.tree.xhi > screenX*0.8 then scrollX = scrollX - screenX*0.2 end
-      if smachine.tree.yhi > screenY*0.8 then scrollY = scrollY - screenY*0.2 end
+      if Syntax.tree.xhi > screenX*0.8 then scrollX = scrollX - screenX*0.2 end
+      if Syntax.tree.yhi > screenY*0.8 then scrollY = scrollY - screenY*0.2 end
     end
   end
   
-  keystroke.cursor:update()
+  Keystroke.cursor:update()
   
 end
+
+---------------------------------------------------------------------
+-- drawing event handlers
+---------------------------------------------------------------------
 
 function love.draw()  
   
@@ -1018,7 +481,7 @@ function love.draw()
     return
   end
 
-  love.graphics.setColor( 0, 25, 60 )
+  love.graphics.setColor( 25, 25, 25 )
   love.graphics.rectangle( "fill", 0, 0, screenX, screenY )
   
   love.graphics.setColor( 100, 50, 0, 255 )
@@ -1027,10 +490,10 @@ function love.draw()
   love.graphics.setColor( 0, 100, 50, 255 )
   love.graphics.rectangle( "fill", 0, fontheight + 4, screenX, fontheight + 4  )
   
-  keystroke.cursor.x = 8 + font:getWidth( keystroke.input )
+  Keystroke.cursor.x = 8 + font:getWidth( Keystroke.input )
   
-  love.graphics.setColor( keystroke.cursor.r, keystroke.cursor.g, keystroke.cursor.b, 255 )
-  love.graphics.rectangle("fill", keystroke.cursor.x, keystroke.cursor.y, keystroke.cursor.width, keystroke.cursor.height )
+  love.graphics.setColor( Keystroke.cursor.r, Keystroke.cursor.g, Keystroke.cursor.b, 255 )
+  love.graphics.rectangle("fill", Keystroke.cursor.x, Keystroke.cursor.y, Keystroke.cursor.width, Keystroke.cursor.height )
   
   love.graphics.setColor( 255, 255, 255, 255 )
   
@@ -1042,47 +505,53 @@ function love.draw()
     love.graphics.print( "File to Save: " .. filename, 2, 2 )
   elseif shift then
     love.graphics.print( "Use Arrow/Home/End to navigate for editing. Insert/Delete to cut&paste, `\\' to edit.", 2, 2) 
-    love.graphics.print( "F1 Load/F2 Save/F3 Reference Swap/F4 Search/../F10 Exit", 2, 6 + fontheight ) 
+    love.graphics.print( "F1 Load/F2 Save/F3 Search/F4 Reference Swap/../F10 Exit", 2, 6 + fontheight ) 
   elseif message then
     love.graphics.print( message, 2, 2 )
   else
     love.graphics.print( "Enter WORDS `enter' to descend and `tab' to remain at that level. Use `{' your_meaning `}' to add meaning. Shift=more help", 2, 2) 
   end
 
-  if #keystroke.input > 0 then
-    love.graphics.print( keystroke.input, 8, 14 + 3*fontheight )
+  if #Keystroke.input > 0 then
+    if Keystroke.state == "valid" or Keystroke.state == "term" then
+      love.graphics.setColor( 0, 255, 0, 255 )
+      love.graphics.print( Keystroke.input, 8, 14 + 3*fontheight )
+      love.graphics.setColor( 255, 255, 255, 255 )
+    else
+      love.graphics.print( Keystroke.input, 8, 14 + 3*fontheight )
+    end
   end
   if defmode then
     love.graphics.print('{' .. definition, 8, 10 + 2 * fontheight )
   end
 
-  if showparse and keystroke.tree and keystroke.tree.current then
-    keystroke.tree:display(keystroke.tree.root)
+  if showparse and Keystroke.tree and Keystroke.tree.current then
+    Keystroke.tree:display(Keystroke.tree.root)
     return
     
-  elseif smachine.tree.current then
+  elseif Syntax.tree.current then
     if not shift then
       if editmode then
-        if smachine.tree.select.meaning then
-          love.graphics.print('SELECT="' .. smachine.tree.select.name .. '" {' .. smachine.tree.select.meaning .. '} depth=' .. smachine.tree.select.depth, 2, 6 + fontheight )    
+        if Syntax.tree.select.meaning then
+          love.graphics.print('SELECT="' .. Syntax.tree.select.name .. '" {' .. Syntax.tree.select.meaning .. '} depth=' .. Syntax.tree.select.depth, 2, 6 + fontheight )    
         else
-          love.graphics.print('SELECT="' .. smachine.tree.select.name .. '" depth=' .. smachine.tree.select.depth, 2, 6 + fontheight )
+          love.graphics.print('SELECT="' .. Syntax.tree.select.name .. '" depth=' .. Syntax.tree.select.depth, 2, 6 + fontheight )
         end
       else
-        if smachine.tree.current.meaning then
-          love.graphics.print('CURRENT="' .. smachine.tree.current.name .. '" {' .. smachine.tree.current.meaning .. '} state=' .. smachine.state .. ' depth=' .. smachine.depth, 2, 6 + fontheight )
+        if Syntax.tree.current.meaning then
+          love.graphics.print('CURRENT="' .. Syntax.tree.current.name .. '" {' .. Syntax.tree.current.meaning .. '} state=' .. Syntax.state .. ' depth=' .. Syntax.depth, 2, 6 + fontheight )
         else
-          love.graphics.print('CURRENT="' .. smachine.tree.current.name .. '" state=' .. smachine.state .. ' depth=' .. smachine.depth, 2, 6 + fontheight )
+          love.graphics.print('CURRENT="' .. Syntax.tree.current.name .. '" state=' .. Syntax.state .. ' depth=' .. Syntax.depth, 2, 6 + fontheight )
         end        
       end
     end
     
-    smachine.tree:display( smachine.tree.root )
+    Syntax.tree:display( Syntax.tree.root )
   
-    if smachine.state == "desc" then
-      love.graphics.circle("fill", smachine.tree.current.x + smachine.tree.current.xlen/2, smachine.tree.current.y + 1.5*fontheight, fontheight/2 )
-    elseif smachine.state == "wait" then
-      love.graphics.circle("fill", smachine.tree.current.x + smachine.tree.current.xlen + fontheight/2, smachine.tree.current.y + fontheight/2, fontheight/2 )
+    if Syntax.state == "desc" then
+      love.graphics.circle("fill", Syntax.tree.current.x + Syntax.tree.current.xlen/2, Syntax.tree.current.y + 1.5*fontheight, fontheight/2 )
+    elseif Syntax.state == "wait" then
+      love.graphics.circle("fill", Syntax.tree.current.x + Syntax.tree.current.xlen + fontheight/2, Syntax.tree.current.y + fontheight/2, fontheight/2 )
     end
     
   else
