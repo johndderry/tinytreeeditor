@@ -12,7 +12,7 @@
 Keystroke = {}
 Keystroke.depth = 0
 Keystroke.state = "pass"
-Keystroke.input, Keystroke.suggest = ""
+Keystroke.input = ""
 
 Keystroke.init = function ()
   
@@ -32,6 +32,35 @@ end
 
 Keystroke.nextState = function( key, node )
   
+  if key == 'right' then
+    Keystroke.state = "hyper"
+    Keystroke.hindex = 1
+    Keystroke.hyper = {}
+    if node == nil then
+      Keystroke.tree:genList( Keystroke.hyper, Keystroke.tree.root )
+    else
+      Keystroke.tree:genList( Keystroke.hyper, node )
+    end
+    Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
+    return node
+  end
+  if key == 'left' then
+    Keystroke.state = "cont"
+    Keystroke.hyper = nil
+    Keystroke.cursor.width = fontsize
+    return node
+  end
+  if key == 'up' then
+    if Keystroke.hindex < #Keystroke.hyper then Keystroke.hindex = Keystroke.hindex + 1 end
+    Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
+    return node
+  end
+  if key == 'down' then
+    if Keystroke.hindex > 1 then Keystroke.hindex = Keystroke.hindex - 1 end
+    Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
+    return node
+  end
+        
   if Keystroke.state == "pass" then 
     if key == "backspace" then
       Keystroke.input = string.sub( Keystroke.input, 1, #Keystroke.input - 1 )
@@ -70,12 +99,13 @@ Keystroke.nextState = function( key, node )
   end
   
   if Keystroke.state == "continue" or Keystroke.state == "valid" or
-     Keystroke.state == "error" then
+     Keystroke.state == "error" or Keystroke.state == "hyper" then
     
     if key == "\n" or key == "\t" then
       Keystroke.depth = 0
       Keystroke.input = ''
       Keystroke.state = "init"
+      Keystroke.cursor.width = fontsize
       return node
     end
     
@@ -83,9 +113,14 @@ Keystroke.nextState = function( key, node )
       Keystroke.input = string.sub( Keystroke.input, 1, #Keystroke.input - 1 )
       Keystroke.depth = Keystroke.depth - 1
       if Keystroke.depth == 0 then Keystroke.state = "init" end
+      if Keystroke.state == "hyper" then
+        Keystroke.hyper = Keystroke.tree:firstTerm( node.parent )
+      end
       return node.parent
     end
 
+    Keystroke.cursor.width = fontsize
+    
     local tmpn = Keystroke.tree:isSibling( node, key )
     if tmpn == nil then
       Keystroke.state = "error"
@@ -130,7 +165,8 @@ Syntax.nextState = function ( input, node )
       return nil
     end
     
-    if Keystroke.state == "pass" or Keystroke.state == "valid" or Keystroke.state == "term" then
+    if Keystroke.state == "pass" or Keystroke.state == "valid" or 
+       Keystroke.state == "term" or Keystroke.state == "hyper" then
       Syntax.state = "desc"
       Syntax.depth = 1;
       -- ignore the parent node passed as this will be the root node
@@ -163,7 +199,8 @@ Syntax.nextState = function ( input, node )
         return nil
       end
     end
-    if Keystroke.state == "pass" or Keystroke.state == "valid" or Keystroke.state == "term" then
+    if Keystroke.state == "pass" or Keystroke.state == "valid" or 
+       Keystroke.state == "term" or Keystroke.state == "hyper" then
       Syntax.depth = Syntax.depth + 1
       return Syntax.tree:attachChild( node, input )
     else
@@ -214,7 +251,8 @@ Syntax.nextState = function ( input, node )
       end
     end
     
-    if Keystroke.state == "pass" or Keystroke.state == "valid" or Keystroke.state == "term" then
+    if Keystroke.state == "pass" or Keystroke.state == "valid" or 
+       Keystroke.state == "term" or Keystroke.state == "hyper" then
       Syntax.state = "desc"
       return Syntax.tree:attach( node.parent, node, input )
     else

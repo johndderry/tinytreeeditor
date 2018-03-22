@@ -53,7 +53,7 @@ function love.keypressed( key )
     else blurb = blurb - 1
     end  
   end
-  showparse = false
+  showkeyparse = false
 end
 
 function love.keyreleased( key ) 
@@ -70,48 +70,50 @@ function love.keyreleased( key )
     return
   end
   
-  if key == 'home' and p then
-    p.selected = false
-    Syntax.tree.select = Syntax.tree.root
-    Syntax.tree.select.selected = true
-    adjustSelectScroll()
-    return
-  end
-  if key == 'end' then
-    autoscroll = true
-    return
-  end
-  if key == 'down' and p and p.child then
-    p.selected = false
-    p = p.child
-    p.selected = true
-    Syntax.tree.select = p
-    adjustSelectScroll()
-    return
-  end
-  if key == 'up' and p and p.parent then
-    p.selected = false
-    p = p.parent
-    p.selected = true
-    Syntax.tree.select = p
-    adjustSelectScroll()
-    return
-  end
-  if key == 'left' and p and p.prev then
-    p.selected = false
-    p = p.prev
-    p.selected = true
-    Syntax.tree.select = p
-    adjustSelectScroll()
-    return
-  end
-  if key == 'right' and p and p.next then
-    p.selected = false
-    p = p.next
-    p.selected = true
-    Syntax.tree.select = p
-    adjustSelectScroll()
-    return
+  if Keystroke.state == "pass" then  
+    if key == 'home' and p then
+      p.selected = false
+      Syntax.tree.select = Syntax.tree.root
+      Syntax.tree.select.selected = true
+      adjustSelectScroll()
+      return
+    end
+    if key == 'end' then
+      autoscroll = true
+      return
+    end
+    if key == 'down' and p and p.child then
+      p.selected = false
+      p = p.child
+      p.selected = true
+      Syntax.tree.select = p
+      adjustSelectScroll()
+      return
+    end
+    if key == 'up' and p and p.parent then
+      p.selected = false
+      p = p.parent
+      p.selected = true
+      Syntax.tree.select = p
+      adjustSelectScroll()
+      return
+    end
+    if key == 'left' and p and p.prev then
+      p.selected = false
+      p = p.prev
+      p.selected = true
+      Syntax.tree.select = p
+      adjustSelectScroll()
+      return
+    end
+    if key == 'right' and p and p.next then
+      p.selected = false
+      p = p.next
+      p.selected = true
+      Syntax.tree.select = p
+      adjustSelectScroll()
+      return
+    end
   end
   
   if key == 'delete' and Syntax.tree.select then
@@ -250,16 +252,15 @@ function love.keyreleased( key )
     Keystroke.tree = SynTree:new()
     
     Syntax.mkRefTables( Syntax.reference.root )
-    showparse = true
+    showkeyparse = true
     return
   end
   
   if key == 'f10' then love.event.quit() return end
   --
-  -- at this point filter out any key events we don't want to record
+  -- at this point filter out some key events we don't want to record
   --
-  if key == 'down' or key == 'up' or key == 'left' or key == 'right' or
-     key == 'insert' or key == 'delete' or key == 'home' then return end
+  if key == 'insert' or key == 'delete' then return end
     
   if key == '\\' and not editmode and Syntax.tree.select then
     editmode = true;
@@ -331,7 +332,8 @@ function love.keyreleased( key )
 
   if key == 'tab' or key == 'return' then
     
-    if Keystroke.state ~= "pass" and Keystroke.state ~= "valid" and Keystroke.state ~= "term" then
+    if Keystroke.state ~= "pass" and Keystroke.state ~= "valid" and 
+       Keystroke.state ~= "term" and Keystroke.state ~= "hyper" then
       return
     end
     
@@ -343,6 +345,8 @@ function love.keyreleased( key )
         Syntax.tree.select.name = Keystroke.input
         editmode = false
         return
+      elseif Keystroke.state == "hyper" then
+        Syntax.tree.current = Syntax.nextState( Keystroke.hyper[Keystroke.hindex], Syntax.tree.current )
       else
         Syntax.tree.current = Syntax.nextState( Keystroke.input, Syntax.tree.current )
       end
@@ -444,7 +448,7 @@ end
 
 function love.update()
   
-  if showparse and Keystroke.tree and Keystroke.tree.current then
+  if showkeyparse and Keystroke.tree and Keystroke.tree.current then
     Keystroke.tree.xhi, Keystroke.tree.yhi = 0, 0
     Keystroke.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Keystroke.tree.root, 1)
     return
@@ -517,15 +521,20 @@ function love.draw()
       love.graphics.setColor( 0, 255, 0, 255 )
       love.graphics.print( Keystroke.input, 8, 14 + 3*fontheight )
       love.graphics.setColor( 255, 255, 255, 255 )
+    elseif Keystroke.state == "hyper" then
+      love.graphics.print( Keystroke.hyper[Keystroke.hindex], 8, 14 + 3*fontheight )
     else
       love.graphics.print( Keystroke.input, 8, 14 + 3*fontheight )
     end
   end
-  if defmode then
+  if Keystroke.hyper then
+    local n = Syntax.refindex[Keystroke.hyper[Keystroke.hindex]]
+    if n then love.graphics.print( '{'.. n.meaning .. '}', 8, 10 + 2 * fontheight ) end
+  elseif defmode then
     love.graphics.print('{' .. definition, 8, 10 + 2 * fontheight )
   end
 
-  if showparse and Keystroke.tree and Keystroke.tree.current then
+  if showkeyparse and Keystroke.tree and Keystroke.tree.current then
     Keystroke.tree:display(Keystroke.tree.root)
     return
     

@@ -245,6 +245,16 @@ function SynTree:isSibling( node, name )
   return nil
 end
 
+function SynTree:genList( list, node )
+
+  if node.meaning then table.insert( list, node.meaning ) end
+  if node.child then
+    self:genList( list, node.child )
+  end
+  if node.next then self:genList( list, node.next ) end
+  
+end
+
 -------------------------------------------------------------
 --  Cursor class
 -------------------------------------------------------------
