@@ -432,6 +432,7 @@ function love.load( arg )
   fontheight = font:getHeight()
   
   Keystroke.init()
+  love.keyboard.setTextInput( true )
   
   treeYbegin = 16 + 4*fontheight
   

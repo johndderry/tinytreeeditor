@@ -32,51 +32,54 @@ end
 
 Keystroke.nextState = function( key, node )
   
-  if key == 'right' then
-    Keystroke.state = "hyper"
-    Keystroke.hindex = 1
-    Keystroke.hyper = {}
-    if node == nil then
-      Keystroke.tree:genList( Keystroke.hyper, Keystroke.tree.root )
-    else
-      Keystroke.tree:genList( Keystroke.hyper, node )
-    end
-    Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
-    return node
-  end
-  if key == 'left' then
-    Keystroke.state = "cont"
-    Keystroke.hyper = nil
-    Keystroke.cursor.width = fontsize
-    return node
-  end
-  if key == 'up' then
-    if Keystroke.hindex < #Keystroke.hyper then Keystroke.hindex = Keystroke.hindex + 1 end
-    Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
-    return node
-  end
-  if key == 'down' then
-    if Keystroke.hindex > 1 then Keystroke.hindex = Keystroke.hindex - 1 end
-    Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
-    return node
-  end
-        
   if Keystroke.state == "pass" then 
     if key == "backspace" then
       Keystroke.input = string.sub( Keystroke.input, 1, #Keystroke.input - 1 )
       Keystroke.depth = Keystroke.depth + 1
       return node
     end
-    if key == "\n" or key == "\t" then
+    if key == '\n' or key == '\t' then
       Keystroke.depth = 0
       Keystroke.input = ''
       return node
     end
+    if key == 'left' or key == 'right' or key == 'up' or key == 'down' then return node end
     Keystroke.input = Keystroke.input .. key
     Keystroke.depth = Keystroke.depth + 1
     return node
   end
     
+  if Keystroke.state ~= "pass" then    
+    if key == 'right' then
+      Keystroke.state = "hyper"
+      Keystroke.hindex = 1
+      Keystroke.hyper = {}
+      if node == nil then
+        Keystroke.tree:genList( Keystroke.hyper, Keystroke.tree.root )
+      else
+        Keystroke.tree:genList( Keystroke.hyper, node )
+      end
+      Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
+      return node
+    end
+    if key == 'left' then
+      Keystroke.state = "cont"
+      Keystroke.hyper = nil
+      Keystroke.cursor.width = fontsize
+      return node
+    end
+    if key == 'up' then
+      if Keystroke.hindex < #Keystroke.hyper then Keystroke.hindex = Keystroke.hindex + 1 end
+      Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
+      return node
+    end
+    if key == 'down' then
+      if Keystroke.hindex > 1 then Keystroke.hindex = Keystroke.hindex - 1 end
+      Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
+      return node
+    end
+  end      
+        
   if Keystroke.state == "term" then
     if key == "backspace" then
       Keystroke.input = string.sub( Keystroke.input, 1, #Keystroke.input - 1 )
