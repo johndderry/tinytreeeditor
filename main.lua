@@ -133,6 +133,7 @@ function love.keyreleased( key )
   
   if key == 'f1' then
     floadmode = true
+    if shift then falt = true end
     return
   end
   if floadmode then
@@ -145,10 +146,18 @@ function love.keyreleased( key )
       end
       local ss = file:read("*all"); file:close()
       Syntax.tree.root = nil
-      Syntax.load( Syntax.tree.root, ss )
+      if falt then
+        local indx = string.find( ss, '{' )
+        Syntax.tree.root = Syntax.altload( nil, string.sub( ss, indx ) )
+        Syntax.tree.current = Syntax.tree:outerChild( Syntax.tree.root )
+        Syntax.state = "desc"
+      else
+        Syntax.load( ss )
+      end
+      falt = false
       return
     elseif key == 'escape' then
-      floadmode = false
+      floadmode, falt = false, false
       return
     elseif key == 'backspace' then
       if #filename > 0 then
@@ -182,9 +191,10 @@ function love.keyreleased( key )
       end      
       file:write( ss ); file:close()
       message = "**save successful**"
+      falt = false
       return
     elseif key == 'escape' then 
-      fsavemode = false
+      fsavemode, falt = false, false
       return
     elseif key == 'backspace' then
       if #filename > 0 then

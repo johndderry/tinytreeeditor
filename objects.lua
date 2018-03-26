@@ -170,7 +170,7 @@ Syntax.nextState = function ( input, node )
     
     if Keystroke.state == "pass" or Keystroke.state == "valid" or 
        Keystroke.state == "term" or Keystroke.state == "hyper" then
-      Syntax.state = "desc"
+      Syntax.state = "accept"
       Syntax.depth = 1;
       -- ignore the parent node passed as this will be the root node
       return Syntax.tree:attach( nil, nil, input )
@@ -179,10 +179,17 @@ Syntax.nextState = function ( input, node )
     end    
   end
   
+  if Syntax.state == "accept" then
+    if input == '\n' then Syntax.state = "desc"
+    elseif input == '\t' then Syntax.state = "wait"
+    end
+    return node 
+  end
+    
   if Syntax.state == "desc" then
     
     if input == '\n' then
-      return node
+      return Syntax.tree:innerChild( node )
     end
     
     if input == '\t' then
@@ -202,9 +209,11 @@ Syntax.nextState = function ( input, node )
         return nil
       end
     end
+    
     if Keystroke.state == "pass" or Keystroke.state == "valid" or 
        Keystroke.state == "term" or Keystroke.state == "hyper" then
       Syntax.depth = Syntax.depth + 1
+      Syntax.state = "accept"
       return Syntax.tree:attachChild( node, input )
     else
       return node
@@ -227,17 +236,18 @@ Syntax.nextState = function ( input, node )
     end
     
     if input == '\t' then
-      if Syntax.depth == 1 then return node end
-      
-      Syntax.depth = Syntax.depth - 1
-      if Syntax.depth == 0  then
+      if node.parent then
+        if node.parent.next == nil then  
+          Syntax.depth = Syntax.depth - 1
+          return node.parent
+        else
+          return Syntax.tree:outerChild( node )
+        end
+      else  
         Syntax.state = "init"
         Syntax.root = nil
         return nil
-      else
-        Syntax.state = "wait"
-        return node.parent
-      end
+      end      
     end
     
     if input == 'backspace' then      
@@ -256,7 +266,7 @@ Syntax.nextState = function ( input, node )
     
     if Keystroke.state == "pass" or Keystroke.state == "valid" or 
        Keystroke.state == "term" or Keystroke.state == "hyper" then
-      Syntax.state = "desc"
+      Syntax.state = "accept"
       return Syntax.tree:attach( node.parent, node, input )
     else
       return node
@@ -311,7 +321,55 @@ Syntax.mkRefTables = function( node )
   
 end
 
-Syntax.load = function( node, chunk )
+function nextToken( chunk )
+  
+  local start, finish, quoted = 1, 1, false
+  while start < #chunk do
+    local s = string.sub( chunk, start, start )
+    if s ~= ' ' and s ~= ',' then break end
+    start = start+1
+  end
+  if start == #chunk then return nil end
+  if string.sub( chunk, start, start ) == '"' then 
+    start = start + 1 
+    quoted = true
+  end
+  finish = start
+  while finish <= #chunk do
+    local c = string.sub( chunk, finish, finish )
+    if quoted then
+      if c == '"' then break end
+    elseif c == ' ' or c == ':' or c == ';' or c == '}' or c == '\n' then 
+      break
+    end
+    finish = finish+1
+  end
+  local restof = finish + 1
+  if quoted then finish = finish -1 end
+    
+  return string.sub( chunk, start, finish ), string.sub( chunk, restof )
+end
+  
+Syntax.altload = function( parent, chunk )
+  
+  local node, token = SynNode:new( parent )
+  
+  local indx = string.find( chunk, '{')
+  chunk = string.sub( chunk, indx+1 )
+  
+  while true do
+    token, chunk = nextToken( chunk )
+    if token == '}' then break
+    elseif token == "name:" then node.name, chunk = nextToken( chunk )
+    elseif token == "meaning" then node.meaning, chunk = nextToken( chunk )
+    elseif token == "next:" then node.next = Syntax.altload( parent, chunk )
+    elseif token == "child:" then node.child = Syntax.altload( node, chunk )
+    end
+  end
+  return node
+end
+
+Syntax.load = function( chunk )
   local key, num, limit = nil, 1, #chunk
   local defmode, definition = false, ""
   

@@ -115,6 +115,44 @@ function SynTree:paste( node )
   end
 end
 
+function SynTree:innerChild( node )
+  
+  local savenode = node
+  while node.parent and node.prev == nil do
+    node = node.parent
+  end
+  if node == savenode or node.prev == nil then 
+    return savenode
+    end
+  node = node.prev
+  
+  while node.child do  
+    node = node.child
+    while node.next do node = node.next end
+  end
+  
+  return node
+end
+
+function SynTree:outerChild( node )
+  
+  local savenode = node
+  while node.parent and node.next == nil do
+    node = node.parent
+  end
+  if node == savenode or node.next == nil then 
+    return savenode
+  end
+  node = node.next
+  
+  while node.child do  
+    node = node.child
+    while node.prev do node = node.prev end
+  end
+  
+  return node
+end
+
   
 function SynTree:setRowPosition( x, y, node, depth )
   local first, namelen = true, 0
