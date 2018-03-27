@@ -121,16 +121,17 @@ function SynTree:innerChild( node )
   while node.parent and node.prev == nil do
     node = node.parent
   end
-  if node == savenode or node.prev == nil then 
-    return savenode
-    end
-  node = node.prev
+  --if node == savenode or node.prev == nil then 
+  --  return savenode
+  --  end
+  if node.prev then node = node.prev end
   
   while node.child do  
     node = node.child
     while node.next do node = node.next end
   end
   
+  Syntax.state = "desc"
   return node
 end
 
@@ -140,16 +141,17 @@ function SynTree:outerChild( node )
   while node.parent and node.next == nil do
     node = node.parent
   end
-  if node == savenode or node.next == nil then 
-    return savenode
-  end
-  node = node.next
+  --if node == savenode or node.next == nil then 
+  --  return savenode
+  --end
+  if node.next then node = node.next end
   
   while node.child do  
     node = node.child
     while node.prev do node = node.prev end
   end
   
+  Syntax.state = "desc"
   return node
 end
 
@@ -291,6 +293,15 @@ function SynTree:genList( list, node )
   end
   if node.next then self:genList( list, node.next ) end
   
+end
+
+function SynTree:fixLinks( parent, prev, node )
+  
+  node.parent = parent
+  node.prev = prev
+  
+  if( node.child ) then self:fixLinks( node, nil, node.child ) end
+  if( node.next ) then self:fixLinks( parent, node, node.next ) end
 end
 
 -------------------------------------------------------------

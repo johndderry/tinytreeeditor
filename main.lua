@@ -149,6 +149,9 @@ function love.keyreleased( key )
       if falt then
         local indx = string.find( ss, '{' )
         Syntax.tree.root = Syntax.altload( nil, string.sub( ss, indx ) )
+        Syntax.tree:fixLinks( nil, nil, Syntax.tree.root )
+        Syntax.tree.select = Syntax.tree.root
+        Syntax.tree.select.selected = true
         Syntax.tree.current = Syntax.tree:outerChild( Syntax.tree.root )
         Syntax.state = "desc"
       else

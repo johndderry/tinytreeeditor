@@ -193,8 +193,12 @@ Syntax.nextState = function ( input, node )
     end
     
     if input == '\t' then
-      Syntax.state = "wait"
-      return node
+      if Syntax.tree.current.next then
+        return Syntax.tree:outerChild( Syntax.tree.current.next )
+      else
+        Syntax.state = "wait"
+        return node
+      end
     end
     
     if input == 'backspace' then      
@@ -241,12 +245,10 @@ Syntax.nextState = function ( input, node )
           Syntax.depth = Syntax.depth - 1
           return node.parent
         else
-          return Syntax.tree:outerChild( node )
+          return Syntax.tree:outerChild( node.parent )
         end
       else  
-        Syntax.state = "init"
-        Syntax.root = nil
-        return nil
+        return node
       end      
     end
     
@@ -360,13 +362,13 @@ Syntax.altload = function( parent, chunk )
   while true do
     token, chunk = nextToken( chunk )
     if token == '}' then break
-    elseif token == "name:" then node.name, chunk = nextToken( chunk )
-    elseif token == "meaning" then node.meaning, chunk = nextToken( chunk )
-    elseif token == "next:" then node.next = Syntax.altload( parent, chunk )
-    elseif token == "child:" then node.child = Syntax.altload( node, chunk )
+    elseif token == "name:" then    node.name, chunk = nextToken( chunk )
+    elseif token == "meaning:" then node.meaning, chunk = nextToken( chunk )
+    elseif token == "next:" then    node.next, chunk = Syntax.altload( parent, chunk )
+    elseif token == "child:" then   node.child, chunk = Syntax.altload( node, chunk )
     end
   end
-  return node
+  return node, chunk
 end
 
 Syntax.load = function( chunk )
