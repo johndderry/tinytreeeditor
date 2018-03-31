@@ -119,15 +119,14 @@ function SynTree:innerChild( node )
   
   local savenode = node
   while node.parent and node.prev == nil do
+    Syntax.depth = Syntax.depth -1
     node = node.parent
   end
-  --if node == savenode or node.prev == nil then 
-  --  return savenode
-  --  end
   if node.prev then node = node.prev end
   
   while node.child do  
     node = node.child
+    Syntax.depth = Syntax.depth + 1
     while node.next do node = node.next end
   end
   
@@ -139,15 +138,14 @@ function SynTree:outerChild( node )
   
   local savenode = node
   while node.parent and node.next == nil do
+    Syntax.depth = Syntax.depth -1
     node = node.parent
   end
-  --if node == savenode or node.next == nil then 
-  --  return savenode
-  --end
   if node.next then node = node.next end
   
   while node.child do  
     node = node.child
+    Syntax.depth = Syntax.depth + 1
     while node.prev do node = node.prev end
   end
   
@@ -301,7 +299,92 @@ function SynTree:fixLinks( parent, prev, node )
   node.prev = prev
   
   if( node.child ) then self:fixLinks( node, nil, node.child ) end
-  if( node.next ) then self:fixLinks( parent, node, node.next ) end
+  if( node.next ) then  self:fixLinks( parent, node, node.next ) end
+end
+
+function SynTree:sortLevel( parent, dir )
+  
+  if parent == nil or parent.child == nil then return end
+  
+  local more, changed = true
+  local node, nextnode
+  while more do
+    node = parent.child
+    nextnode = node.next
+    changed = false
+    while node and nextnode do
+      local nextnext = nextnode.next
+      if (dir and nextnode.name < node.name) or
+         (not dir and nextnode.name > node.name) then
+        node.next = nextnode.next
+        if node.next then
+          node.next.prev = node
+        end
+        nextnode.prev = node.prev
+        if nextnode.prev then
+          nextnode.prev.next = nextnode
+        end
+        nextnode.next = node
+        node.prev = nextnode
+        if node == parent.child then
+          parent.child = nextnode
+        end
+        if nextnode == self.current then
+          self.current = node
+        end
+        
+        changed = true
+        --node = nextnode
+        nextnode = nextnext
+      else
+        node = nextnode
+        nextnode = nextnext
+      end
+    end
+    if not changed then more = false end
+  end
+end
+  
+function SynTree:insertRoot( name )
+  
+  local saveroot, tmp = self.root, self.root
+  if self.select then self.select.selected = false end
+  
+  local node = self:attach( nil, nil, name )
+  while tmp do
+    tmp.parent = node
+    tmp = tmp.next
+  end
+  node.child = saveroot
+  Syntax.state = "wait"
+  Syntax.depth = 1
+end
+
+function SynTree:deleteRoot( )
+  
+  if self.root.child == nil then return end
+  
+  local wasSelected, wasCurrent = self.root.selected
+  if self.root == self.current then wasCurrent = true
+  else                              wasCurrent = false
+  end
+  
+  self.root = self.root.child
+  if wasCurrent then 
+    self.current = self.root
+    while self.current.next do self.current = self.current.next end
+    Syntax.state = "wait"
+  end
+  if wasSelected then
+    self.root.selected = true
+    self.selected = self.root 
+  end
+  
+  local node = self.root 
+  while node do
+    node.parent = nil
+    node = node.next
+  end
 end
 
 -------------------------------------------------------------

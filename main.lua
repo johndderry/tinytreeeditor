@@ -269,6 +269,18 @@ function love.keyreleased( key )
     return
   end
   
+  if key == 'f5' then
+    Syntax.tree:sortLevel( Syntax.tree.select, not shift )
+    return
+  end
+  
+  if key == 'f6' then 
+    if shift then Syntax.tree:deleteRoot()
+    else          Syntax.tree:insertRoot('Untitled')
+    end  
+    return
+  end
+  
   if key == 'f10' then love.event.quit() return end
   --
   -- at this point filter out some key events we don't want to record
@@ -523,7 +535,7 @@ function love.draw()
     love.graphics.print( "File to Save: " .. filename, 2, 2 )
   elseif shift then
     love.graphics.print( "Use Arrow/Home/End to navigate for editing. Insert/Delete to cut&paste, `\\' to edit.", 2, 2) 
-    love.graphics.print( "F1 Load/F2 Save/F3 Search/F4 Reference Swap/../F10 Exit", 2, 6 + fontheight ) 
+    love.graphics.print( "F1 Load/F2 Save/F3 Search/F4 Reference Swap/F5 Sort/F6 Root/../F10 Exit", 2, 6 + fontheight ) 
   elseif message then
     love.graphics.print( message, 2, 2 )
   else

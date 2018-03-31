@@ -202,8 +202,9 @@ Syntax.nextState = function ( input, node )
     end
     
     if input == 'backspace' then      
+      local prev = node.prev
       Syntax.tree:cut( node )
-      if node.prev then return node.prev
+      if prev then return prev
       elseif node.parent then
         return node.parent
       else
@@ -252,10 +253,11 @@ Syntax.nextState = function ( input, node )
       end      
     end
     
-    if input == 'backspace' then      
+    if input == 'backspace' then
+      local prev = node.prev
       Syntax.tree:cut( node )
       Syntax.state = "desc"
-      if node.prev then return node.prev
+      if prev then return prev
       elseif node.parent then
         return node.parent
       else
