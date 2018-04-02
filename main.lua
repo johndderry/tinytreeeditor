@@ -16,6 +16,7 @@ scrollX, scrollY = 0, 0
 definition, filename, searchstr, message = "", "", "", nil
 shift, defmode, editmode, autoscroll = false, false, false, true
 floadmode, fsavemode, falt, searchmode, mousehold = false, false, false, false, false
+showkeyparse, showlist = false, false
 
 function adjustSelectScroll()
   
@@ -35,7 +36,6 @@ function adjustSelectScroll()
       scrollY = scrollY + screenY*0.2
     end
     
-    Syntax.tree.xhi, Syntax.tree.yhi = 0, 0
     Syntax.tree:setRowPosition( 10 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
   end
 end
@@ -281,8 +281,14 @@ function love.keyreleased( key )
     return
   end
   
-  if key == 'f9' then blurb = 3 return end
-  
+  if key == 'f9' then 
+    if shift then showlist = not showlist
+    else
+      blurb = 3 return
+    end
+    return
+  end
+    
   if key == 'f10' then love.event.quit() return end
   --
   -- at this point filter out some key events we don't want to record
@@ -346,7 +352,7 @@ function love.keyreleased( key )
   --
   -- now we call one of the state machines
   --
-  autoscroll = true
+  --autoscroll = true
   
   if key == 'backspace' then
     if #Keystroke.input > 0 then
@@ -477,18 +483,24 @@ end
 function love.update()
   
   if showkeyparse and Keystroke.tree and Keystroke.tree.current then
-    Keystroke.tree.xhi, Keystroke.tree.yhi = 0, 0
     Keystroke.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Keystroke.tree.root, 1)
     return
   end
     
   if Syntax.tree.root then
-    Syntax.tree.xhi, Syntax.tree.yhi = 0, 0
-    Syntax.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
+    if showlist then
+      Syntax.tree:setListPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
+    else
+      Syntax.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
+    end
     
     if autoscroll then
-      if Syntax.tree.xhi > screenX*0.8 then scrollX = scrollX - screenX*0.2 end
-      if Syntax.tree.yhi > screenY*0.8 then scrollY = scrollY - screenY*0.2 end
+      if Syntax.tree.current.x < screenX*0.2 then scrollX = scrollX + screenX*0.2
+      elseif Syntax.tree.current.x > screenX*0.8 then scrollX = scrollX - screenX*0.2
+      end
+      if Syntax.tree.current.y < screenY*0.2 then scrollY = scrollY + screenY*0.2
+      elseif Syntax.tree.current.y > screenY*0.8 then scrollY = scrollY - screenY*0.2
+      end
     end
   end
   
@@ -563,7 +575,7 @@ function love.draw()
   end
 
   if showkeyparse and Keystroke.tree and Keystroke.tree.current then
-    Keystroke.tree:display(Keystroke.tree.root)
+    Keystroke.tree:display(Keystroke.tree.root, true)
     return
     
   elseif Syntax.tree.current then
@@ -583,7 +595,7 @@ function love.draw()
       end
     end
     
-    Syntax.tree:display( Syntax.tree.root )
+    Syntax.tree:display( Syntax.tree.root, not showlist )
   
     if Syntax.state == "desc" then
       love.graphics.circle("fill", Syntax.tree.current.x + Syntax.tree.current.xlen/2, Syntax.tree.current.y + 1.5*fontheight, fontheight/2 )

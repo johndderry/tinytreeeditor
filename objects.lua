@@ -313,14 +313,20 @@ Syntax.mkRefTables = function( node )
     
   if node == nil then return end
   
+  io.write( '\nProcessing ' .. node.name )
+  
   if node.child then
     Syntax.mkRefTables( node.child )
   end
   
-  while node do
+  if node.name:sub(1,1) ~= '#' then
     Syntax.refindex[node.name] = node
     Syntax.travParseAdd( Keystroke.tree.root, nil, node.name, node.name )
+  end
+  
+  while node.next do
     node = node.next
+    Syntax.mkRefTables( node )
   end
   
 end
