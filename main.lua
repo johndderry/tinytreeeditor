@@ -20,20 +20,20 @@ showkeyparse, showlist = false, false
 
 function adjustSelectScroll()
   
+  autoscroll = false
+    
   while Syntax.tree.select.x > screenX*0.8 or Syntax.tree.select.x < 8 or
       Syntax.tree.select.y > screenY*0.8 or Syntax.tree.select.y < treeYbegin do
     
-    autoscroll = false
-    
     if Syntax.tree.select.x > screenX*0.8 then
       scrollX = scrollX - screenX*0.2 
-    elseif Syntax.tree.select.x < 10 then
-     scrollX = scrollX + screenX*0.2
+    elseif Syntax.tree.select.x < 8 then
+     scrollX = scrollX + screenX*0.1
     end
     if Syntax.tree.select.y > screenY*0.8 then
       scrollY = scrollY - screenY*0.2 
     elseif Syntax.tree.select.y < treeYbegin then
-      scrollY = scrollY + screenY*0.2
+      scrollY = scrollY + screenY*0.1
     end
     
     Syntax.tree:setRowPosition( 10 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
@@ -72,9 +72,9 @@ function love.keyreleased( key )
   
   if Keystroke.state == "pass" then  
     if key == 'home' and p then
-      p.selected = false
-      Syntax.tree.select = Syntax.tree.root
-      Syntax.tree.select.selected = true
+      --p.selected = false
+      --Syntax.tree.select = Syntax.tree.root
+      --Syntax.tree.select.selected = true
       adjustSelectScroll()
       return
     end
@@ -117,8 +117,13 @@ function love.keyreleased( key )
   end
   
   if key == 'delete' and Syntax.tree.select then
-    local newselect = Syntax.tree.select.parent
+    local newselect = Syntax.tree.select.prev
+    if newselect == nil then newselect = Syntax.tree.select.parent end
     if newselect == nil then return end
+    
+    if Syntax.tree.select == Syntax.tree.current then
+      Syntax.tree.current = newselect
+    end
     
     Syntax.tree.select.selected = false
     Syntax.tree:cut( Syntax.tree.select )
@@ -494,11 +499,11 @@ function love.update()
       Syntax.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
     end
     
-    if autoscroll then
-      if Syntax.tree.current.x < screenX*0.2 then scrollX = scrollX + screenX*0.2
+    if autoscroll and Syntax.tree.current then
+      if Syntax.tree.current.x < 0 then scrollX = scrollX + screenX*0.1
       elseif Syntax.tree.current.x > screenX*0.8 then scrollX = scrollX - screenX*0.2
       end
-      if Syntax.tree.current.y < screenY*0.2 then scrollY = scrollY + screenY*0.2
+      if Syntax.tree.current.y < treeYbegin then scrollY = scrollY + screenY*0.1
       elseif Syntax.tree.current.y > screenY*0.8 then scrollY = scrollY - screenY*0.2
       end
     end

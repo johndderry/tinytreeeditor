@@ -312,8 +312,7 @@ end
 Syntax.mkRefTables = function( node )
     
   if node == nil then return end
-  
-  io.write( '\nProcessing ' .. node.name )
+  local savenode = node
   
   if node.child then
     Syntax.mkRefTables( node.child )
@@ -324,11 +323,7 @@ Syntax.mkRefTables = function( node )
     Syntax.travParseAdd( Keystroke.tree.root, nil, node.name, node.name )
   end
   
-  while node.next do
-    node = node.next
-    Syntax.mkRefTables( node )
-  end
-  
+  if node.next then Syntax.mkRefTables( node.next ) end
 end
 
 function nextToken( chunk )
