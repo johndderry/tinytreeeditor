@@ -68,15 +68,18 @@ Keystroke.nextState = function( key, node )
       Keystroke.cursor.width = fontsize
       return node
     end
-    if key == 'up' then
-      if Keystroke.hindex < #Keystroke.hyper then Keystroke.hindex = Keystroke.hindex + 1 end
-      Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
+    if Keystroke.state == "hyper" then
+      if key == 'up' then
+        if Keystroke.hindex < #Keystroke.hyper then Keystroke.hindex = Keystroke.hindex + 1 end
+        Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
+      end
+      if key == 'down' then
+        if Keystroke.hindex > 1 then Keystroke.hindex = Keystroke.hindex - 1 end
+        Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
+      end
       return node
-    end
-    if key == 'down' then
-      if Keystroke.hindex > 1 then Keystroke.hindex = Keystroke.hindex - 1 end
-      Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
-      return node
+    else
+      if key == 'up' or key == 'down' then return node end
     end
   end      
         
@@ -309,21 +312,20 @@ Syntax.travParseAdd = function( node, parent, subname, fullname )
   
 end
 
-Syntax.mkRefTables = function( node )
+Syntax.mkRefTables = function( node, makeindex )
     
   if node == nil then return end
-  local savenode = node
   
   if node.child then
     Syntax.mkRefTables( node.child )
   end
   
   if node.name:sub(1,1) ~= '#' then
-    Syntax.refindex[node.name] = node
+    if makeindex then Syntax.refindex[node.name] = node end
     Syntax.travParseAdd( Keystroke.tree.root, nil, node.name, node.name )
   end
   
-  if node.next then Syntax.mkRefTables( node.next ) end
+  if node.next then Syntax.mkRefTables( node.next, makeindex ) end
 end
 
 function nextToken( chunk )

@@ -12,14 +12,13 @@
 SynNode = {}
 
 function SynNode:new(parent)
-  o = {}
-  setmetatable(o, self)
-  self.__index = self  
-  o.next, o.prev, o.child = nil, nil, nil
-  o.parent = parent
-  o.name = "Node"
-  o.selected = false
-  return o
+  local self = {
+    next = nil, prev = nil, child = nil,
+    name = "Node",
+    selected = false
+  }
+  self.parent = parent
+  return setmetatable( self, {__index = SynNode} )
 end
 
 -------------------------------------------------------------
@@ -29,12 +28,11 @@ end
 SynTree = {}
 
 function SynTree:new()
-  o = {}
-  setmetatable(o, self)
-  self.__index = self
-  self.root, self.current, self.select = nil, nil, nil
-  self.state = "init"
-  return o
+  local self = {
+    root = nil, current = nil, select = nil,
+    state = "init"
+  }
+  return setmetatable( self, {__index = SynTree} )
 end
 
 function SynTree:attach( parent, atpoint, name )
@@ -119,18 +117,18 @@ function SynTree:innerChild( node )
   
   local savenode = node
   while node.parent and node.prev == nil do
-    Syntax.depth = Syntax.depth -1
+    --Syntax.depth = Syntax.depth -1
     node = node.parent
   end
   if node.prev then node = node.prev end
   
   while node.child do  
     node = node.child
-    Syntax.depth = Syntax.depth + 1
+    --Syntax.depth = Syntax.depth + 1
     while node.next do node = node.next end
   end
   
-  Syntax.state = "desc"
+  --Syntax.state = "desc"
   return node
 end
 
@@ -138,18 +136,18 @@ function SynTree:outerChild( node )
   
   local savenode = node
   while node.parent and node.next == nil do
-    Syntax.depth = Syntax.depth -1
+    --Syntax.depth = Syntax.depth -1
     node = node.parent
   end
   if node.next then node = node.next end
   
   while node.child do  
     node = node.child
-    Syntax.depth = Syntax.depth + 1
+    --Syntax.depth = Syntax.depth + 1
     while node.prev do node = node.prev end
   end
   
-  Syntax.state = "desc"
+  --Syntax.state = "desc"
   return node
 end
 

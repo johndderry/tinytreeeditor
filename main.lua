@@ -254,6 +254,7 @@ function love.keyreleased( key )
       if Keystroke.state == "pass" then
         Keystroke.cursor = Keystroke.altcursor
         Keystroke.state = "init"
+        Syntax.mkRefTables( Syntax.tree.root, false )
       else
         Keystroke.state = "pass" 
         Keystroke.cursor = Keystroke.maincursor
@@ -268,8 +269,8 @@ function love.keyreleased( key )
     Syntax.refindex = {}
     
     Keystroke.tree = SynTree:new()
+    Syntax.mkRefTables( Syntax.reference.root, true )
     
-    Syntax.mkRefTables( Syntax.reference.root )
     showkeyparse = true
     return
   end
@@ -357,21 +358,21 @@ function love.keyreleased( key )
   --
   -- now we call one of the state machines
   --
-  --autoscroll = true
   
   if key == 'backspace' then
     if #Keystroke.input > 0 then
       Keystroke.current = Keystroke.nextState( key, Keystroke.current )
       return
     end
-    Syntax.tree.current = Syntax.nextState( key, Syntax.tree.current )
+    if shift then Syntax.tree.current = Syntax.nextState( key, Syntax.tree.current ) end
     return
   end
 
   if key == 'tab' or key == 'return' then
     
-    if Keystroke.state ~= "pass" and Keystroke.state ~= "valid" and 
-       Keystroke.state ~= "term" and Keystroke.state ~= "hyper" then
+    if Keystroke.state ~= "pass" and Keystroke.state ~= "init" and 
+        Keystroke.state ~= "valid" and Keystroke.state ~= "term" and
+        Keystroke.state ~= "hyper" then
       return
     end
     
