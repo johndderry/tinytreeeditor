@@ -301,12 +301,12 @@ function love.keyreleased( key )
   --
   if key == 'insert' or key == 'delete' then return end
     
-  if key == '\\' and not editmode and Syntax.tree.select then
+  if key == '\\' and not shift and not editmode and Syntax.tree.select then
     editmode = true;
     Keystroke.input = Syntax.tree.select.name 
     return
   end
-  if key == '\\' and editmode then 
+  if key == '\\' and not shift and editmode then 
     editmode = false
     Keystroke.input = ''
     return
