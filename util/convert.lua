@@ -5,9 +5,9 @@
 --    No Rights Reserved
 -------------------------------------------------------------
 require "classes"
-LuaMidi = require "LuaMidi"
+MidiLib = require "libluamidi"
 
-filename = "2.m"
+filename = "01"
 if arg then
   if arg[#arg] == "-debug" then require("mobdebug").start() end
   if #arg > 1 then filename = arg[1] end
@@ -46,12 +46,12 @@ Operators = {
   ['+']=0, ['-']=1
 }
 
-Repeat = {
-  ['&'] = 0
-}
-
+Block = {
+  ['@'] = 0, ['&'] = 1
+  }
+  
 BuiltIn = {
-  MODE = 0, KEY = 1
+  MODE = 0, KEY = 1, VELOCITY = 2
 }
 
 Modes = {}
@@ -75,9 +75,12 @@ KeyDescriptor = {
 Numerator = 4
 Denominator = 16
 Keyoffset = 0
+Channel = 0
+Velocity = 127
+Time = 0
 Mode = Modes.ionian
 
-outputNote = function( name, note, key, mode )
+outputNote = function( name, note )
   if #note > 2 then
     io.write( "outputNote (" .. name .. ") pitch=" .. note[1]..'/'..note[2] .. " num=" .. note[3] .. " den=" .. note[4] .. '\n' ) 
   elseif #note > 1 then
@@ -95,23 +98,20 @@ outputNote = function( name, note, key, mode )
     octave = 0
   end
   
-  local midinote = mode[ tonumber( nt ) + 1]
-  if Keyoffset + midinote > 11 then
-    octave = octave + 1
-  end
-  local notestring = TwelveNoteScale[ midinote + 1 + Keyoffset ] .. octave
-
-  local event = LuaMidi.NoteEvent.new({pitch=notestring})
-  event:set_pitch( notestring )
+  local midinote = Mode[ tonumber( nt ) + 1]
+--  if Keyoffset + midinote > 11 then
+--    octave = octave + 1
+--  end
   
   local num, den = note[3], note[4]
   if num < 0 then num = Numerator end
   if den < 0 then den = Denominator end
-  local ticks = ( (num * 4) / den ) * 96
   
-  event:set_duration( 'T' .. ticks )
+  MidiLib.SortedNotesAddToList( sortednotes, 1, Channel, midinote + octave*12 + Keyoffset, Velocity, Time )
+
+  Time = Time + ( (num * 4) / den ) * 96
   
-  track:add_events( event )
+  MidiLib.SortedNotesAddToList( sortednotes, 0, Channel, midinote + octave*12 + Keyoffset, Velocity, Time )
   
 end
 
@@ -135,14 +135,19 @@ setVariable = function( node )
     val = Digits[node.child.name]
     if val == nil then
       val = Operators[node.child.name]
-      if val ~= nil then
-        val = evalAsOperator( node.child, node.name )
+      if val == nil then
+        val = Block[node.child.name]
+        if val == nil then
+          io.write( "error in setVariable: don't recognize '" .. node.child.name .. "'\n" )
+          val = { 'a', 0, -1, -1 }
+        else
+          val = {'a', 0, -1, -1, node.child }
+        end
       else
-        io.write( "error #1 in evalAsRepeat")
-        val = { 'a', 0, 0, 0 }
+        val = evalAsOperator( node.child, node.name )
       end
     else
-      val = { '', val, 0, 0 }
+      val = { '', val, -1, -1 }
     end
   else
     val = noteDetail( node.child )
@@ -204,7 +209,7 @@ evalAsOperator = function( node, otype )
     elseif Notes[node.name] then
       nextone = noteDetail( node )
     elseif Digits[node.name] then
-      first = { Digits[node.name], 1, 1 }
+      nextone = { Digits[node.name], 1, 1 }
     else
     -- consider as variable
       nextone = Variables[node.name]
@@ -231,9 +236,50 @@ evalAsBuiltIn = function( node, btype )
     if node then Mode = Modes.index[tonumber(node.name)] end
   elseif btype == "KEY" then
     if node then Keyoffset = KeyDescriptor[node.name] end
+  elseif btype == "VOLUME" then
+    if node then Velocity = tonumber(node.name) end
   end
   
 end
+
+evalAsParallel = function( node, ptype )
+  
+  local val
+  local save = { Numerator, Denominator, Keyoffset, Channel, Time, Mode }
+  while node do
+    
+    Numerator, Denominator, Keyoffset, Channel, Time, Mode = save[1], save[2], save[3], save[4], save[5], save[6]
+    
+    if Notes[node.name] then
+      outputNote( node.name, noteDetail( node ) ) 
+      
+    elseif Operators[node.name] then
+      outputNote( node.name, evalAsOperator( node.child, node.name ) )
+      
+    elseif Block[node.name] == 0 then
+      evalAsRepeat( node.child, node.name )
+      
+    elseif Block[node.name] == 1 then
+      evalAsParallel( node.child, node.name )
+      
+    elseif BuiltIn[node.name] then
+      evalAsBuiltIn( node.child, node.name )
+      
+    else
+      -- consider as variable, but don't set
+      val = Variables[node.name]
+      if val then -- read the variable
+        if val[5] then
+          evalAsRepeat( val[5].child, val[5].name )    
+        else
+          outputNote( node.name, val )
+        end
+      end
+    end
+    node = node.next
+  end
+  return 0  
+end    
 
 evalAsRepeat = function( node, rtype )
   
@@ -244,17 +290,35 @@ evalAsRepeat = function( node, rtype )
   while rep > 0 do
     node = savenode
     while node do
-      val = Notes[node.name]
-      if val ~= nil then
-        val = noteDetail( node )
-        outputNote( node.name, val, Keyoffset, Mode ) 
+      if Digits[node.name] then
+        Numerator = tonumber( node.name )
+        if node.child then
+          Denominator = tonumber( node.child.name )
+        end              
+      elseif node.name == '*' then
+        if node.child then
+          local num = tonumber( node.child.name )
+          if node.child.child then
+            local den = tonumber( node.child.child.name )
+            Time = Time + ( (num * 4) / den ) * 96
+          else
+            Time = Time + ( (num * 4) / Denominator ) * 96
+          end
+        else
+            Time = Time + ( (Numerator * 4) / Denominator ) * 96
+        end
+      elseif Notes[node.name] then
+        outputNote( node.name, noteDetail( node ) ) 
         
       elseif Operators[node.name] then
-        outputNote( evalAsOperator( node.child, node.name, Mode ), node.name )
+        outputNote( node.name, evalAsOperator( node.child, node.name ) )
         
-      elseif Repeat[node.name] then
+      elseif Block[node.name] == 0 then
         evalAsRepeat( node.child, node.name )
-        
+      
+      elseif Block[node.name] == 1 then
+        evalAsParallel( node.child, node.name )
+      
       elseif BuiltIn[node.name] then
         evalAsBuiltIn( node.child, node.name )
         
@@ -267,7 +331,11 @@ evalAsRepeat = function( node, rtype )
           setVariable( node )        
         else
           -- read the variable
-          outputNote( node.name, val, Key, Mode )
+          if val[5] then
+            evalAsRepeat( val[5].child, val[5].name )    
+          else
+            outputNote( node.name, val )
+          end
         end
       end
       node = node.next
@@ -356,13 +424,33 @@ readtree = function()
   return tree
 end
 
-track = LuaMidi.Track.new()
+--track = LuaMidi.Track.new()
+sortednotes = MidiLib.SortedNotesNew()
 
 musictree = readtree()
 dumptree( musictree.root, '' )
 
 evalAsRepeat( musictree.root, "initial" )
 
-writer = LuaMidi.Writer.new( track )
+--writer = LuaMidi.Writer.new( track )
+--writer:save_MIDI('testmidi')
 
-writer:save_MIDI('testmidi')
+count = MidiLib.SortedNotesCount( sortednotes )
+
+track = MidiLib.TrackNew( 4*count + 9 )
+
+MidiLib.SortedNotesTrackNotes( sortednotes, track )
+
+tracklen = MidiLib.TrackLength( track ) 
+
+midifile = MidiLib.MidiFileNew("out.mid", "w")
+
+MidiLib.MidiFileWriteChunk( midifile, track );
+
+MidiLib.SortedNotesDelete( sortednotes )
+
+MidiLib.TrackDelete( track )
+
+MidiLib.MidiFileDelete( midifile )
+
+io.write( 'count='.. count .. '  tracklen=' .. tracklen )
