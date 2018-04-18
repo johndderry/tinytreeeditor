@@ -213,7 +213,7 @@ function SynTree:display( node, treemode )
       end
     end
     
-    if node.x >= 0 and node.x < screenX and node.y >= treeYbegin and node.y < screenY then 
+    if node.x >= -screenX/2 and node.x < screenX and node.y >= treeYbegin and node.y < screenY then 
       if node.selected then
         --local r, g, b, a = love.graphics.getColor()
         love.graphics.rectangle("fill", node.x, node.y, node.xlen, fontheight )

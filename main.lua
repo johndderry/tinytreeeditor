@@ -173,7 +173,13 @@ function love.keyreleased( key )
       end
       return
     end
-    if shift then key = key:upper() end
+    if shift then 
+      local k = MyShift[key]
+      if k then key = k
+      else
+        key = key:upper()
+      end
+    end
     filename = filename .. key
     return
   end
@@ -210,7 +216,13 @@ function love.keyreleased( key )
       end
       return
     end
-    if shift then key = key:upper() end
+    if shift then 
+      local k = MyShift[key]
+      if k then key = k
+      else
+        key = key:upper()
+      end
+    end
     filename = filename .. key
     return
   end
@@ -241,8 +253,13 @@ function love.keyreleased( key )
       end
       return
     end
-    if key == 'space' then key = ' '
-    elseif shift then key = key:upper()
+    if key == 'space' then key = ' ' end
+    if shift then 
+      local k = MyShift[key]
+      if k then key = k
+      else
+        key = key:upper()
+      end
     end
     searchstr = searchstr .. key
 
@@ -302,7 +319,7 @@ function love.keyreleased( key )
   if key == 'insert' or key == 'delete' then return end
     
   if key == '\\' and not shift and not editmode and Syntax.tree.select then
-    editmode = true;
+    editmode = true
     Keystroke.input = Syntax.tree.select.name 
     return
   end
@@ -327,14 +344,14 @@ function love.keyreleased( key )
       defmode = false
       if editmode then
         Syntax.tree.select.meaning = definition
-        Keystroke.input = ''
+        Keystroke.input, definition = '', ''
         editmode = false
       else        
-        if Syntax.tree.current then 
+        if #Keystroke.input == 0 and Syntax.tree.current then 
           Syntax.tree.current.meaning = definition
+          definition = ''
         end
       end
-      definition = ""
       return
     end
     if key == 'return' or key == 'space' or key == 'tab' then key = ' '
@@ -388,6 +405,10 @@ function love.keyreleased( key )
         Syntax.tree.current = Syntax.nextState( Keystroke.hyper[Keystroke.hindex], Syntax.tree.current )
       else
         Syntax.tree.current = Syntax.nextState( Keystroke.input, Syntax.tree.current )
+        if #definition > 0 then 
+          Syntax.tree.current.meaning = definition 
+          definition = ""
+        end
       end
       Keystroke.current = Keystroke.nextState( key, Keystroke.current )
     end

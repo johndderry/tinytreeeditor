@@ -388,10 +388,10 @@ Syntax.load = function( chunk )
     elseif defmode then
       if key == '}' then
         defmode = false
-        if Syntax.tree.current then
+        if #Keystroke.input == 0 and Syntax.tree.current then
           Syntax.tree.current.meaning = definition
+          definition = ""
         end
-        definition = ""
       else
         definition = definition .. key
       end
@@ -403,6 +403,10 @@ Syntax.load = function( chunk )
         if #Keystroke.input > 0 then 
           Syntax.tree.current = Syntax.nextState( Keystroke.input, Syntax.tree.current )
           Keystroke.input = ''
+          if #definition > 0 then
+            Syntax.tree.current.meaning = definition
+            definition = ''
+          end
         end
         Syntax.tree.current = Syntax.nextState( key, Syntax.tree.current )
       else
@@ -420,7 +424,7 @@ Syntax.altdump = function( node )
     tmps = tmps .. ' meaning: "' .. node.meaning .. '",'
   end
   if node.child then
-    tmps = tmps .. ' child:' .. Syntax.altdump( node.child ) 
+    tmps = tmps .. ' child:' .. Syntax.altdump( node.child ) .. ','
   end
   if node.next then
     tmps = tmps .. ' next:' .. Syntax.altdump( node.next )
