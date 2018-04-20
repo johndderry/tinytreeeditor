@@ -35,6 +35,28 @@ function SynTree:new()
   return setmetatable( self, {__index = SynTree} )
 end
 
+function SynTree:clone( node, parent )
+  
+  local first, prev, newnode = nil, nil
+  
+  while node do
+    newnode = SynNode:new(parent)
+    newnode.prev = prev
+    if prev then prev.next = newnode end
+    newnode.name = node.name 
+    newnode.meaning = node.meaning
+    if node.child then
+      newnode.child = self:clone( node.child, newnode )
+    end
+    
+    if first == nil then first = newnode end
+    prev = newnode
+    node = node.next
+  end
+
+  return first
+end
+  
 function SynTree:attach( parent, atpoint, name )
   local node = SynNode:new( parent )
   node.name = name
@@ -100,6 +122,8 @@ end
 function SynTree:paste( node )
   if self.cutbuffer == nil then return end
   
+  local cutbuffer = self:clone( self.cutbuffer )
+  
   -- displace 'node' approach
   self.cutbuffer.next = node
   self.cutbuffer.prev = node.prev
@@ -108,9 +132,16 @@ function SynTree:paste( node )
   end
   node.prev = self.cutbuffer
   self.cutbuffer.parent = node.parent
-  if node.parent and node.parent.child == node then 
-    node.parent.child = self.cutbuffer
+  if node.parent then 
+    if node.parent.child == node then 
+      node.parent.child = self.cutbuffer
+    end
+  else
+    if self.root == node then 
+      self.root = self.cutbuffer
+    end    
   end
+  self.cutbuffer = nil
 end
 
 function SynTree:innerChild( node )

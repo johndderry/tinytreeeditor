@@ -318,6 +318,10 @@ function love.keyreleased( key )
   --
   if key == 'insert' or key == 'delete' then return end
     
+  --
+  -- deal with editmode and defmode ( define meaning )
+  --
+
   if key == '\\' and not shift and not editmode and Syntax.tree.select then
     editmode = true
     Keystroke.input = Syntax.tree.select.name 
@@ -327,6 +331,7 @@ function love.keyreleased( key )
     editmode = false
     Keystroke.input = ''
     return
+    -- note: not the only place we leave editmode
   end
   
   message = nil
@@ -400,6 +405,7 @@ function love.keyreleased( key )
       if editmode then
         Syntax.tree.select.name = Keystroke.input
         editmode = false
+        Keystroke.input = ""
         return
       elseif Keystroke.state == "hyper" then
         Syntax.tree.current = Syntax.nextState( Keystroke.hyper[Keystroke.hindex], Syntax.tree.current )
@@ -435,8 +441,7 @@ function love.mousepressed( x, y, button )
   
   if button ~= 1 then return end
   
-  local node = Syntax.tree:locate( Syntax.tree.root, x, y )
-  if node then return end
+  if Syntax.tree:locate( Syntax.tree.root, x, y ) then return end
   
   mousehold = true
   return
@@ -459,9 +464,13 @@ function love.mousereleased( x, y, button )
   
   local node = Syntax.tree:locate( Syntax.tree.root, x, y )
   if node then
-    Syntax.tree.select.selected = false
-    Syntax.tree.select = node
-    node.selected = true
+    if shift then
+      Syntax.tree.current = node
+    else      
+      Syntax.tree.select.selected = false
+      Syntax.tree.select = node
+      node.selected = true
+    end
   end
   
 end
@@ -473,6 +482,7 @@ end
 function love.load( arg )
   
   fontsize = 12
+  screenX, screenY  = 800, 600
   if arg then
     if arg[#arg] == "-debug" then require("mobdebug").start() end
     local argn
@@ -481,10 +491,17 @@ function love.load( arg )
       if a == "-fontsize" then
         argn = argn + 1
         fontsize = tonumber( arg[argn] )
+      elseif a == "-width" then
+        argn = argn + 1
+        screenX = tonumber( arg[argn] )
+      elseif a == "-height" then
+        argn = argn + 1
+        screenY = tonumber( arg[argn] )        
       end
     end
   end
   
+  love.window.setMode( screenX, screenY )
   screenX, screenY  = love.graphics.getDimensions()
   love.window.setTitle( "(Tiny) Tree Editor" )
   
