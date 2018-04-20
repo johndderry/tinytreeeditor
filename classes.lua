@@ -125,23 +125,22 @@ function SynTree:paste( node )
   local cutbuffer = self:clone( self.cutbuffer )
   
   -- displace 'node' approach
-  self.cutbuffer.next = node
-  self.cutbuffer.prev = node.prev
+  cutbuffer.next = node
+  cutbuffer.prev = node.prev
   if node.prev then 
-    node.prev.next = self.cutbuffer
+    node.prev.next = cutbuffer
   end
-  node.prev = self.cutbuffer
-  self.cutbuffer.parent = node.parent
+  node.prev = cutbuffer
+  cutbuffer.parent = node.parent
   if node.parent then 
     if node.parent.child == node then 
-      node.parent.child = self.cutbuffer
+      node.parent.child = cutbuffer
     end
   else
     if self.root == node then 
-      self.root = self.cutbuffer
+      self.root = cutbuffer
     end    
   end
-  self.cutbuffer = nil
 end
 
 function SynTree:innerChild( node )
