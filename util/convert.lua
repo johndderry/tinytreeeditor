@@ -7,7 +7,7 @@
 require "classes"
 MidiLib = require "libluamidi"
 
-filename = "01"
+filename = "5.m"
 if arg then
   if arg[#arg] == "-debug" then require("mobdebug").start() end
   if #arg > 1 then filename = arg[1] end
@@ -51,7 +51,7 @@ Block = {
   }
   
 BuiltIn = {
-  MODE = 0, KEY = 1, VELOCITY = 2
+  KEY = 0, MODE = 1, CHANNEL = 2, PROGRAM = 3, VELOCITY = 4
 }
 
 Modes = {}
@@ -73,12 +73,19 @@ KeyDescriptor = {
   }
 
 Numerator = 4
-Denominator = 16
+Denominator = 4
 Keyoffset = 0
 Channel = 0
 Velocity = 127
 Time = 0
 Mode = Modes.ionian
+
+outputProgCng = function( program )
+  io.write( "outputProgChange program=" .. program .. '\n' ) 
+  
+  MidiLib.SortedNotesAddToList( sortednotes, 2, Channel, program, 0, Time )
+end  
+
 
 outputNote = function( name, note )
   if #note > 2 then
@@ -109,7 +116,7 @@ outputNote = function( name, note )
   
   MidiLib.SortedNotesAddToList( sortednotes, 1, Channel, midinote + octave*12 + Keyoffset, Velocity, Time )
 
-  Time = Time + ( (num * 4) / den ) * 96
+  Time = Time + ( num / den ) * 96
   
   MidiLib.SortedNotesAddToList( sortednotes, 0, Channel, midinote + octave*12 + Keyoffset, Velocity, Time )
   
@@ -232,14 +239,15 @@ end
 
 evalAsBuiltIn = function( node, btype )
   
-  if btype == "MODE" then
-    if node then Mode = Modes.index[tonumber(node.name)] end
-  elseif btype == "KEY" then
-    if node then Keyoffset = KeyDescriptor[node.name] end
-  elseif btype == "VOLUME" then
-    if node then Velocity = tonumber(node.name) end
-  end
+  if node == nil then return end
   
+  if btype == "KEY" then Keyoffset = KeyDescriptor[node.name]
+  elseif btype == "MODE" then Mode = Modes.index[tonumber(node.name)]
+  elseif btype == "CHANNEL" then Channel = tonumber(node.name) 
+  elseif btype == "PROGRAM" then outputProgCng( tonumber(node.name) )
+  elseif btype == "VELOCITY" then Velocity = tonumber(node.name) 
+  end
+
 end
 
 evalAsParallel = function( node, ptype )
@@ -437,7 +445,7 @@ evalAsRepeat( musictree.root, "initial" )
 
 count = MidiLib.SortedNotesCount( sortednotes )
 
-track = MidiLib.TrackNew( 4*count + 9 )
+track = MidiLib.TrackNew( 6*count + 2 )
 
 MidiLib.SortedNotesTrackNotes( sortednotes, track )
 
