@@ -158,7 +158,6 @@ end
 -------------------------------------------------------------
 
 Syntax = {}
-Syntax.depth = 0
 Syntax.state = "init"
 Syntax.tree = SynTree:new()
 Syntax.reference = SynTree:new()
@@ -174,7 +173,6 @@ Syntax.nextState = function ( input, node )
     if Keystroke.state == "pass" or Keystroke.state == "valid" or 
        Keystroke.state == "term" or Keystroke.state == "hyper" then
       Syntax.state = "accept"
-      Syntax.depth = 1;
       -- ignore the parent node passed as this will be the root node
       return Syntax.tree:attach( nil, nil, input )
     else
@@ -220,7 +218,6 @@ Syntax.nextState = function ( input, node )
     
     if Keystroke.state == "pass" or Keystroke.state == "valid" or 
        Keystroke.state == "term" or Keystroke.state == "hyper" then
-      Syntax.depth = Syntax.depth + 1
       Syntax.state = "accept"
       return Syntax.tree:attachChild( node, input )
     else
@@ -233,7 +230,6 @@ Syntax.nextState = function ( input, node )
     if input == '\n' then
       local nxt
       if node.child then
-        Syntax.depth = Syntax.depth + 1
         nxt = node.child
         while nxt.next do nxt = nxt.next end
         return nxt
@@ -246,7 +242,6 @@ Syntax.nextState = function ( input, node )
     if input == '\t' then
       if node.parent then
         if node.parent.next == nil then  
-          Syntax.depth = Syntax.depth - 1
           return node.parent
         else
           return Syntax.tree:outerChild( node.parent )

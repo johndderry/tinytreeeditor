@@ -60,7 +60,6 @@ end
 function SynTree:attach( parent, atpoint, name )
   local node = SynNode:new( parent )
   node.name = name
-  node.depth = Syntax.depth
   if parent == nil and atpoint == nil then
     node.selected = true
     self.root, self.current, self.select = node, node, node
@@ -81,7 +80,6 @@ function SynTree:attachChild( parent, name )
   
   local node = SynNode:new( parent )
   node.name = name
-  --node.depth = Syntax.depth
   node.next = parent.child
   parent.child = node 
   
@@ -102,7 +100,6 @@ end
 function SynTree:cut( node )
   if inTree( node, self.current ) then
     self.current = node.parent
-    Syntax.depth = Syntax.depth -1
   end
   self.cutbuffer = node
   if node.prev then
@@ -147,14 +144,12 @@ function SynTree:innerChild( node )
   
   local savenode = node
   while node.parent and node.prev == nil do
-    --Syntax.depth = Syntax.depth -1
     node = node.parent
   end
   if node.prev then node = node.prev end
   
   while node.child do  
     node = node.child
-    --Syntax.depth = Syntax.depth + 1
     while node.next do node = node.next end
   end
   
@@ -166,14 +161,12 @@ function SynTree:outerChild( node )
   
   local savenode = node
   while node.parent and node.next == nil do
-    --Syntax.depth = Syntax.depth -1
     node = node.parent
   end
   if node.next then node = node.next end
   
   while node.child do  
     node = node.child
-    --Syntax.depth = Syntax.depth + 1
     while node.prev do node = node.prev end
   end
   
@@ -194,7 +187,7 @@ function SynTree:setListPosition( x, y, node, depth )
   return y
 end
   
-function SynTree:setRowPosition( x, y, node, depth )
+function SynTree:setRowPosition( x, y, node )
   local first, namelen = true, 0
   local newx, returning
   local spacing = 4
@@ -204,11 +197,9 @@ function SynTree:setRowPosition( x, y, node, depth )
     newx = x
     namelen = font:getWidth( '(' .. node.name .. ')' )
     if node.child then 
-      newx = self:setRowPosition( x, y + 1.5*fontheight, node.child, depth + 1 )
+      newx = self:setRowPosition( x, y + 1.5*fontheight, node.child )
       returning = true
     end
-    
-    node.depth = depth
     
     if returning then
       node.x = x
@@ -400,7 +391,6 @@ function SynTree:insertRoot( name )
   end
   node.child = saveroot
   Syntax.state = "wait"
-  Syntax.depth = 1
 end
 
 function SynTree:deleteRoot( )

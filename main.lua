@@ -82,7 +82,8 @@ function love.keyreleased( key )
       autoscroll = true
       return
     end
-    if key == 'down' and p and p.child then
+    if ((key == 'down' and not showlist) or (key == 'right' and showlist)) 
+          and p and p.child then
       p.selected = false
       p = p.child
       p.selected = true
@@ -90,7 +91,8 @@ function love.keyreleased( key )
       adjustSelectScroll()
       return
     end
-    if key == 'up' and p and p.parent then
+    if ((key == 'up' and not showlist) or (key == 'left' and showlist))
+          and p and p.parent then
       p.selected = false
       p = p.parent
       p.selected = true
@@ -98,7 +100,8 @@ function love.keyreleased( key )
       adjustSelectScroll()
       return
     end
-    if key == 'left' and p and p.prev then
+    if ((key == 'left' and not showlist) or (key == 'up' and showlist))
+          and p and p.prev then
       p.selected = false
       p = p.prev
       p.selected = true
@@ -106,7 +109,8 @@ function love.keyreleased( key )
       adjustSelectScroll()
       return
     end
-    if key == 'right' and p and p.next then
+    if ((key == 'right' and not showlist) or (key == 'down' and showlist))
+        and p and p.next then
       p.selected = false
       p = p.next
       p.selected = true
@@ -535,7 +539,7 @@ function love.update()
     if showlist then
       Syntax.tree:setListPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
     else
-      Syntax.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
+      Syntax.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root )
     end
     
     if autoscroll and Syntax.tree.current then
@@ -593,11 +597,12 @@ function love.draw()
     love.graphics.print( "File to Save: " .. filename, 2, 2 )
   elseif shift then
     love.graphics.print( "Use Arrow/Home/End to navigate for editing. Insert/Delete to cut&paste, `\\' to edit.", 2, 2) 
-    love.graphics.print( "F1 Load/F2 Save/F3 Search/F4 Reference Swap/F5 Sort/F6 Root/../F9 Intro/F10 Exit", 2, 6 + fontheight ) 
+    love.graphics.print( "F1 Alt-Load/F2 Alt-Save/F3/F4 Restrictive Mode/F5 Reverse Sort/F6 Delete Root/../F9 List View/F10", 2, 6 + fontheight ) 
   elseif message then
     love.graphics.print( message, 2, 2 )
   else
-    love.graphics.print( "Enter WORDS `enter' to descend and `tab' to remain at that level. Use `{' your_meaning `}' to add meaning. Shift=more help", 2, 2) 
+    love.graphics.print( "Enter SOMETHING then `enter' to descend, `tab' to remain at that level. `{' your_meaning `}' to add meaning. Shift=more help", 2, 2) 
+    love.graphics.print( "F1 Load/F2 Save/F3 Search/F4 Reference Swap/F5 Sort/F6 Insert Root/../F9 Intro/F10 Exit", 2, 6 + fontheight ) 
   end
 
   if #Keystroke.input > 0 then
@@ -621,23 +626,9 @@ function love.draw()
   if showkeyparse and Keystroke.tree and Keystroke.tree.current then
     Keystroke.tree:display(Keystroke.tree.root, true)
     return
-    
-  elseif Syntax.tree.current then
-    if not shift then
-      if editmode then
-        if Syntax.tree.select.meaning then
-          love.graphics.print('SELECT="' .. Syntax.tree.select.name .. '" {' .. Syntax.tree.select.meaning .. '} depth=' .. Syntax.tree.select.depth, 2, 6 + fontheight )    
-        else
-          love.graphics.print('SELECT="' .. Syntax.tree.select.name .. '" depth=' .. Syntax.tree.select.depth, 2, 6 + fontheight )
-        end
-      else
-        if Syntax.tree.current.meaning then
-          love.graphics.print('CURRENT="' .. Syntax.tree.current.name .. '" {' .. Syntax.tree.current.meaning .. '} state=' .. Syntax.state .. ' depth=' .. Syntax.depth, 2, 6 + fontheight )
-        else
-          love.graphics.print('CURRENT="' .. Syntax.tree.current.name .. '" state=' .. Syntax.state .. ' depth=' .. Syntax.depth, 2, 6 + fontheight )
-        end        
-      end
-    end
+  end
+  
+  if Syntax.tree.current then
     
     Syntax.tree:display( Syntax.tree.root, not showlist )
   
