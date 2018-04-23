@@ -7,10 +7,10 @@
 require "classes"
 MidiLib = require "libluamidi"
 
-filename = "5.m"
+filename = "a.m"
 if arg then
   if arg[#arg] == "-debug" then require("mobdebug").start() end
-  if #arg > 1 then filename = arg[1] end
+  if #arg > 0 then filename = arg[1] end
 end
 
 Variables = {}
@@ -55,14 +55,14 @@ BuiltIn = {
 }
 
 Modes = {}
-Modes.ionian = {0,2,4,5,7,9,11,12}
+Modes.ionian = {0,2,4,5,7,9,11}
 Modes.dorian = {0,2,3,5,7,9,10}
 Modes.phrygian = {0,1,3,5,7,8,10}
 Modes.lydian = {0,2,4,6,7,9,11}
 Modes.mixolydian = {0,2,4,5,7,9,10}
 Modes.aeolian = {0,2,3,5,7,8,10}
 Modes.locrian = {0,1,3,5,6,8,10}
-Modes.index = { Modes.ionoan, Modes.dorian, Modes.phrygian, Modes.lydian, Modes.mixolydian, Modes.aeolian, Modes.locrian } 
+Modes.index = { Modes.ionian, Modes.dorian, Modes.phrygian, Modes.lydian, Modes.mixolydian, Modes.aeolian, Modes.locrian } 
 
 TwelveNoteScale = {
   'C','C#','D','D#','E','F','F#','G','G#','A','A#','B','C','C#','D','D#','E','F','F#','G','G#','A','A#','B'
@@ -291,9 +291,19 @@ end
 
 evalAsRepeat = function( node, rtype )
   
-  local rep = tonumber( node.name )
+  local rep, val
+  if Digits[node.name] then
+    rep = tonumber( node.name )
+  elseif Operators[ node.name ] then
+    rep = evalAsOperator( node.child, node.name )
+  else
+    val = Variables[node.name]
+    if val then rep = val[2] end
+  end
+  if rep == nil then rep = 1 end
+  
   node = node.next
-  local val, savenode = nil, node
+  local savenode = node
   
   while rep > 0 do
     node = savenode
@@ -438,7 +448,10 @@ sortednotes = MidiLib.SortedNotesNew()
 musictree = readtree()
 dumptree( musictree.root, '' )
 
-evalAsRepeat( musictree.root, "initial" )
+start = musictree.root
+while start and start.name:sub(1,1) == '#' do start = start.child end
+
+evalAsRepeat( start, "initial" )
 
 --writer = LuaMidi.Writer.new( track )
 --writer:save_MIDI('testmidi')

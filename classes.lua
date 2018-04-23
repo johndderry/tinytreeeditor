@@ -228,7 +228,9 @@ function SynTree:display( node, treemode )
     
     if node.child then
       self:display( node.child, treemode )
-      if treemode and node.x >= 0 and node.x < screenX and node.y >= treeYbegin and node.y < screenY then
+      if treemode and node.name:sub(1,1) ~= '#' and
+          node.x >= 0 and node.x < screenX and 
+          node.y >= treeYbegin and node.y < screenY then
         love.graphics.line(node.child.x + node.child.xlen/2, node.child.y,
           node.x + node.xlen/2, node.y + fontheight )
       end
@@ -251,7 +253,10 @@ function SynTree:display( node, treemode )
       elseif treemode then
         love.graphics.print( '('.. node.name ..')', node.x, node.y )
       elseif node.meaning then
-        love.graphics.print( node.name .. ' {' .. node.meaning .. '}', node.x, node.y )
+        love.graphics.print( node.name, node.x, node.y )
+        love.graphics.setColor( 255, 100, 100, 255 ) 
+        love.graphics.print( '{' .. node.meaning .. '}', node.x + node.xlen+ 4, node.y )
+        love.graphics.setColor( 255, 255, 255, 255 ) 
       else
         love.graphics.print( node.name, node.x, node.y )
       end
