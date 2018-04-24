@@ -243,8 +243,8 @@ evalAsBuiltIn = function( node, btype )
   
   if btype == "KEY" then Keyoffset = KeyDescriptor[node.name]
   elseif btype == "MODE" then Mode = Modes.index[tonumber(node.name)]
-  elseif btype == "CHANNEL" then Channel = tonumber(node.name) 
-  elseif btype == "PROGRAM" then outputProgCng( tonumber(node.name) )
+  elseif btype == "CHANNEL" then Channel = tonumber(node.name) -1
+  elseif btype == "PROGRAM" then outputProgCng( tonumber(node.name) -1 )
   elseif btype == "VELOCITY" then Velocity = tonumber(node.name) 
   end
 
