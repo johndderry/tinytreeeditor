@@ -30,6 +30,7 @@ SynTree = {}
 function SynTree:new()
   local self = {
     root = nil, current = nil, select = nil,
+    xoffs = 0, yoffs = 0, page = 0,
     state = "init"
   }
   return setmetatable( self, {__index = SynTree} )
@@ -178,7 +179,7 @@ end
 function SynTree:setListPosition( x, y, node, depth, getwidth )
   
   while node do
-    node.x, node.y = x + 12*depth, y
+    node.x, node.y = x + 12*depth + self.xoffs, y + self.yoffs
     y = y + 1.2*fontheight
     if node.child then y = self:setListPosition( x, y, node.child, depth+1, getwidth) end
     node.xlen = getwidth( node.name )
@@ -187,7 +188,7 @@ function SynTree:setListPosition( x, y, node, depth, getwidth )
   return y
 end
   
-function SynTree:setRowPosition( x, y, node, getwidth )
+function SynTree:setTreePosition( x, y, node, getwidth )
   local first, namelen = true, 0
   local newx, returning
   local spacing = 4
@@ -198,19 +199,19 @@ function SynTree:setRowPosition( x, y, node, getwidth )
     newx = x
     namelen = getwidth( '(' .. node.name .. ')' )
     if node.child then 
-      newx = self:setRowPosition( x, y + 1.5*fontheight, node.child, getwidth )
+      newx = self:setTreePosition( x, y + 1.5*fontheight, node.child, getwidth )
       returning = true
     end
     
     if returning then
-      node.x = x
+      node.x = x + self.xoffs
       x = newx
       returning = false
     else
-      node.x = x
+      node.x = x + self.xoffs
     end
     node.xlen = namelen
-    node.y = y
+    node.y = y + self.yoffs
     
     x = x + namelen + spacing
     node = node.next
@@ -428,6 +429,27 @@ function SynTree:deleteRoot( )
   end
 end
 
+function SynTree:split( node )
+  
+  local t = SynTree:new()
+  t.xoffs = node.x - self.xoffs
+  t.yoffs = node.y - self.yoffs
+  t.root = node
+  if( node.parent and node.parent.child == node ) then
+    node.parent.child = nil;
+  end
+  node.parent = nil;
+  if node.prev then
+    node.prev.next = nil
+  end
+  node.prev = nil
+  local n = node.next
+  while n do
+    n.parent = nil
+    n = n.next
+  end
+  return t
+end
 -------------------------------------------------------------
 --  Cursor class
 -------------------------------------------------------------

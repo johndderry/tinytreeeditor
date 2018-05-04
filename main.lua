@@ -11,11 +11,13 @@ MyShift = {[","]="<", ["."]=">", ["/"]="?", [";"]=":", ["'"]='"',
            ["["]="{", ["]"]="}", ["\\"]="|",["`"]="~", ["1"]="!", ["2"]="@",
            ["3"]="#", ["4"]="$", ["5"]="%", ["6"]="^",
            ["7"]="&", ["8"]="*", ["9"]="(", ["0"]=")", ["-"]="_", ["="]="+" }
-blurb = 3
-scrollX, scrollY = 0, 0
+
+trees = { Syntax.tree }
+scrollX, scrollY, pagenum = 0, 0, 0
 definition, filename, searchstr, message = "", "", "", nil
 shift, defmode, editmode, autoscroll = false, false, false, true
-floadmode, fsavemode, falt, searchmode, mousehold = false, false, false, false, false
+floadmode, fsavemode, falt, searchmode = false, false, false, false
+mousehold, mouseTreehold = false, false 
 showkeyparse, showlist = false, false
 
 if allegro then
@@ -44,8 +46,88 @@ function adjustSelectScroll()
       scrollY = scrollY + screenY*0.1
     end
     
-    Syntax.tree:setRowPosition( 10 + scrollX, treeYbegin + scrollY, Syntax.tree.root, sys.getwidth )
+    Syntax.tree:setTreePosition( 10 + scrollX, treeYbegin + scrollY, Syntax.tree.root, sys.getwidth )
   end
+end
+
+---------------------------------------------------------------------
+-- mouse event handlers
+---------------------------------------------------------------------
+
+function sys.mousepressed( x, y, button )
+  
+  if button ~= 1 then return end
+  
+  if Syntax.tree:locate( Syntax.tree.root, x, y ) then 
+    mouseTreehold = true
+    holdtree = Syntax.tree
+    return
+  end
+  
+  mousehold = true
+  return
+end
+
+function sys.mousemoved( x, y, dx, dy )
+  
+  local breaknode, newtree
+  if mousehold then 
+    scrollX = scrollX + dx
+    scrollY = scrollY + dy  
+  elseif mouseTreehold then
+    if shift then
+      breaknode = holdtree:locate( holdtree.root, x, y )
+      newtree = holdtree:split( breaknode )
+      newtree.select = newtree.root 
+      newtree.select.selected = true
+      newtree.current = newtree:outerChild( newtree.root )
+      newtree.cutbuffer = Syntax.tree.cutbuffer
+      Syntax.tree.select.selected = false
+      trees[#trees+1], Syntax.tree, holdtree = newtree, newtree, newtree
+      shift = false      -- necessary or we will keep coming back here
+    else
+      holdtree.xoffs = holdtree.xoffs + dx
+      holdtree.yoffs = holdtree.yoffs + dy
+    end
+  end    
+  return
+end
+  
+function sys.mousereleased( x, y, button )
+  
+  if button ~= 1 then return end
+  
+  mousehold, mouseTreehold = false, false
+  
+  local k, v
+  local node = Syntax.tree:locate( Syntax.tree.root, x, y )
+  if node then
+    if shift then
+      Syntax.tree.current = node
+    else      
+      Syntax.tree.select.selected = false
+      Syntax.tree.select = node
+      node.selected = true
+    end
+  else
+    for k, v in ipairs( trees ) do
+      node = v:locate( v.root, x, y )
+      if node then
+        v.cutbuffer = Syntax.tree.cutbuffer
+        Syntax.tree.select.selected = false
+        Syntax.tree = v
+        if shift then
+          Syntax.tree.current = node
+        else      
+          Syntax.tree.select.selected = false
+          Syntax.tree.select = node
+          node.selected = true
+        end
+        break
+      end
+    end
+  end
+  
 end
 
 ---------------------------------------------------------------------
@@ -115,6 +197,22 @@ function sys.keyreleased( key )
       adjustSelectScroll()
       return
     end
+  end
+  
+  if key == sys.pageup then
+    if mouseTreehold then
+      holdtree.page = pagenum + 1
+    end
+    pagenum = pagenum + 1
+    return
+  end
+  
+  if key == sys.pagedown then 
+    if mouseTreehold then
+      holdtree.page = pagenum - 1
+    end
+    pagenum = pagenum - 1
+    return
   end
   
   if key == sys.delete and Syntax.tree.select then
@@ -407,6 +505,28 @@ function sys.keyreleased( key )
     return
   end
   
+  -- 
+  -- look for tree merge request
+  --
+  
+  if shift then
+    if key == sys._return or key == sys.tab then
+      local dest, x, y, k, v
+      x = Syntax.tree.root.x - Syntax.tree.xoffs
+      y = Syntax.tree.root.y - Syntax.tree.yoffs
+      for k, v in ipairs( trees ) do
+        if v ~= Syntax.tree then
+          dest = v:locate( v.root, x, y )
+          if dest then
+            if key == sys._return then v:merge( dest, "child", Syntax.tree ) end
+            if key == sys.tab then v:merge( dest, "sibling", Syntax.tree ) end
+            
+          end 
+        end
+      end
+    end
+  end
+  
   --
   -- now we call one of the state machines
   --
@@ -464,48 +584,6 @@ function sys.keyreleased( key )
 end
   
 ---------------------------------------------------------------------
--- mouse event handlers
----------------------------------------------------------------------
-
-function sys.mousepressed( x, y, button )
-  
-  if button ~= 1 then return end
-  
-  if Syntax.tree:locate( Syntax.tree.root, x, y ) then return end
-  
-  mousehold = true
-  return
-end
-
-function sys.mousemoved( x, y, dx, dy )
-  
-  if not mousehold then return end
-    
-  scrollX = scrollX + dx
-  scrollY = scrollY + dy  
-  return
-end
-  
-function sys.mousereleased( x, y, button )
-  
-  if button ~= 1 then return end
-  
-  mousehold = false
-  
-  local node = Syntax.tree:locate( Syntax.tree.root, x, y )
-  if node then
-    if shift then
-      Syntax.tree.current = node
-    else      
-      Syntax.tree.select.selected = false
-      Syntax.tree.select = node
-      node.selected = true
-    end
-  end
-  
-end
-
----------------------------------------------------------------------
 -- load and update handlers
 ---------------------------------------------------------------------
 
@@ -556,24 +634,26 @@ end
 function sys.update()
   
   if showkeyparse and Keystroke.tree and Keystroke.tree.current then
-    Keystroke.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Keystroke.tree.root, sys.getwidth)
+    Keystroke.tree:setTreePosition( 8 + scrollX, treeYbegin + scrollY, Keystroke.tree.root, sys.getwidth)
     return
   end
     
-  if Syntax.tree.root then
-    if showlist then
-      Syntax.tree:setListPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
-    else
-      Syntax.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, sys.getwidth )
+  for k, v in ipairs( trees ) do
+    if v.current and v.page == pagenum then       
+      if showlist then
+        v:setListPosition( 8 + scrollX, treeYbegin + scrollY, v.root, 1 )
+      else
+        v:setTreePosition( 8 + scrollX, treeYbegin + scrollY, v.root, sys.getwidth )
+      end
     end
-    
-    if autoscroll and Syntax.tree.current then
-      if Syntax.tree.current.x < 0 then scrollX = scrollX + screenX*0.1
-      elseif Syntax.tree.current.x > screenX*0.8 then scrollX = scrollX - screenX*0.2
-      end
-      if Syntax.tree.current.y < treeYbegin then scrollY = scrollY + screenY*0.1
-      elseif Syntax.tree.current.y > screenY*0.8 then scrollY = scrollY - screenY*0.2
-      end
+  end
+      
+  if autoscroll and Syntax.tree.current then
+    if Syntax.tree.current.x < 0 then scrollX = scrollX + screenX*0.1
+    elseif Syntax.tree.current.x > screenX*0.8 then scrollX = scrollX - screenX*0.2
+    end
+    if Syntax.tree.current.y < treeYbegin then scrollY = scrollY + screenY*0.1
+    elseif Syntax.tree.current.y > screenY*0.8 then scrollY = scrollY - screenY*0.2
     end
   end
   
@@ -647,17 +727,22 @@ function sys.draw()
     return
   end
   
-  if Syntax.tree.current then
-    
-    Syntax.tree:display( Syntax.tree.root, not showlist, sys.graphics, sys.getwidth )
+  local k, v
+  for k, v in ipairs( trees ) do
+    if v.current and v.page == pagenum then 
+      v:display( v.root, not showlist, sys.graphics, sys.getwidth )
+    end
+  end
   
+  if Syntax.tree.current and Syntax.tree.page == pagenum then
+    
     if Syntax.state == "desc" then
       sys.graphics.circle("fill", Syntax.tree.current.x + Syntax.tree.current.xlen/2, Syntax.tree.current.y + 1.5*fontheight, fontheight/2 )
     elseif Syntax.state == "wait" then
       sys.graphics.circle("fill", Syntax.tree.current.x + Syntax.tree.current.xlen + fontheight/2, Syntax.tree.current.y + fontheight/2, fontheight/2 )
     end
     
-  else
+  elseif pagenum == 0 then
     sys.graphics.circle("fill", 16, 22 + 4 * fontheight, fontheight/2 )    
   end
   
