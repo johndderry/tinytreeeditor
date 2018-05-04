@@ -5,13 +5,16 @@
 --    No Rights Reserved
 -------------------------------------------------------------
 require "classes"
-require "objects"
+require "objects_a"
 
 MyShift = {[","]="<", ["."]=">", ["/"]="?", [";"]=":", ["'"]='"', 
            ["["]="{", ["]"]="}", ["\\"]="|",["`"]="~", ["1"]="!", ["2"]="@",
            ["3"]="#", ["4"]="$", ["5"]="%", ["6"]="^",
            ["7"]="&", ["8"]="*", ["9"]="(", ["0"]=")", ["-"]="_", ["="]="+" }
 
+Punctuation = {comma=',', period='.', slash='/', semicolon=';', apostrophe="'",
+  bracketleft='[', bracketright=']', backslash = '\\', minus='-', equal='=', grave='`'}
+  
 scrollX, scrollY = 0, 0
 definition, filename, searchstr, message = "", "", "", nil
 shift, defmode, editmode, autoscroll = false, false, false, true
@@ -23,7 +26,6 @@ function getwidth( string )
   --return font:getWidth( string )
   return 8 * #string
 end
-
 
 function adjustSelectScroll()
   
@@ -174,6 +176,7 @@ function allegro.keyreleased( key )
       end
       return
     end
+    key = Punctuation[key] or key
     if shift then 
       local k = MyShift[key]
       if k then key = k
@@ -211,12 +214,13 @@ function allegro.keyreleased( key )
     elseif key == 'Escape' then 
       fsavemode, falt = false, false
       return
-    elseif key == 'Backspace' then
+    elseif key == 'BackSpace' then
       if #filename > 0 then
         filename = string.sub( filename, 1, #filename - 1 )
       end
       return
     end
+    key = Punctuation[key] or key
     if shift then 
       local k = MyShift[key]
       if k then key = k
@@ -248,13 +252,14 @@ function allegro.keyreleased( key )
     elseif key == 'Escape' then
       searchmode = false
       return
-    elseif key == 'Backspace' then
+    elseif key == 'BackSpace' then
       if #searchstr > 0 then
         searchstr = string.sub( searchstr, 1, #searchstr - 1 )
       end
       return
     end
     if key == 'space' then key = ' ' end
+    key = Punctuation[key] or key
     if shift then 
       local k = MyShift[key]
       if k then key = k
@@ -305,11 +310,35 @@ function allegro.keyreleased( key )
     return
   end
   
+  if key == 'F8' then 
+    io.write('out.mid:\n')
+
+    local sortednotes = MidiLib.SortedNotesNew()
+    ToMidi.setsortednotes( sortednotes )
+    
+    local start = Syntax.tree.root
+    while start and start.name:sub(1,1) == '#' do start = start.child end
+    
+    ToMidi.evalAsRepeat( start, "initial" )
+    
+    local count = MidiLib.SortedNotesCount( sortednotes )
+    local track = MidiLib.TrackNew( 6*count + 2 )
+    MidiLib.SortedNotesTrackNotes( sortednotes, track )
+    local tracklen = MidiLib.TrackLength( track ) 
+    local midifile = MidiLib.MidiFileNew("out.mid", "w")
+    MidiLib.MidiFileWriteChunk( midifile, track );
+    MidiLib.SortedNotesDelete( sortednotes )
+    MidiLib.TrackDelete( track )
+    MidiLib.MidiFileDelete( midifile )
+
+    io.write('tracklen = ' .. tracklen .. ' complete.\n')
+    allegro.playmidi(); 
+    
+    return
+  end
+    
   if key == 'F9' then 
-    if shift then showlist = not showlist
-    else
-      blurb = 3 return
-    end
+    showlist = not showlist
     return
   end
     
@@ -318,7 +347,11 @@ function allegro.keyreleased( key )
   -- at this point filter out some key events we don't want to record
   --
   if key == 'Insert' or key == 'Delete' then return end
-    
+  --
+  -- fix up the allegro reported keys for punctuation
+  --
+  key = Punctuation[key] or key
+  
   --
   -- deal with editmode and defmode ( define meaning )
   --
@@ -361,7 +394,7 @@ function allegro.keyreleased( key )
       return
     end
     if key == 'Return' or key == 'space' or key == 'Tab' then key = ' '
-    elseif key == 'Backspace' then
+    elseif key == 'BackSpace' then
       if #definition > 0 then
         definition = string.sub( definition, 1, #definition - 1 )
       end
@@ -382,7 +415,7 @@ function allegro.keyreleased( key )
   -- now we call one of the state machines
   --
   
-  if key == 'Backspace' then
+  if key == 'BackSpace' then
     if #Keystroke.input > 0 then
       Keystroke.current = Keystroke.nextState( key, Keystroke.current )
       return
@@ -482,11 +515,17 @@ end
 
 function allegro.load( arg )
   
-  LuaMidi = require("libluamidi")
+  MidiLib = require("libluamidi")
+  ToMidi = require("tomidi")
+  ToMidi.setmidilib( MidiLib )
   
+  --junk.junk = 0
+
   fontsize = 12
   screenX, screenY  = 800, 600
+  io.write("#arg="..#arg..'\n')
   if arg then
+    io.write("#arg="..#arg..'\n')
     if arg[#arg] == "-debug" then require("mobdebug").start() end
     local argn
     for argn = 2, #arg do
@@ -527,7 +566,7 @@ function allegro.update()
     
   if Syntax.tree.root then
     if showlist then
-      Syntax.tree:setListPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
+      Syntax.tree:setListPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1, getwidth )
     else
       Syntax.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, getwidth )
     end

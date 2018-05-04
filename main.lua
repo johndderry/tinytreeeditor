@@ -18,6 +18,12 @@ shift, defmode, editmode, autoscroll = false, false, false, true
 floadmode, fsavemode, falt, searchmode, mousehold = false, false, false, false, false
 showkeyparse, showlist = false, false
 
+-- getwidth is a function we pass to setRowPosition()
+function getwidth( string )
+  return font:getWidth( string )
+end
+
+
 function adjustSelectScroll()
   
   autoscroll = false
@@ -36,7 +42,7 @@ function adjustSelectScroll()
       scrollY = scrollY + screenY*0.1
     end
     
-    Syntax.tree:setRowPosition( 10 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
+    Syntax.tree:setRowPosition( 10 + scrollX, treeYbegin + scrollY, Syntax.tree.root, getwidth )
   end
 end
 
@@ -531,7 +537,7 @@ end
 function love.update()
   
   if showkeyparse and Keystroke.tree and Keystroke.tree.current then
-    Keystroke.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Keystroke.tree.root, 1)
+    Keystroke.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Keystroke.tree.root, getwidth)
     return
   end
     
@@ -539,7 +545,7 @@ function love.update()
     if showlist then
       Syntax.tree:setListPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
     else
-      Syntax.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root )
+      Syntax.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, getwidth )
     end
     
     if autoscroll and Syntax.tree.current then
@@ -624,13 +630,13 @@ function love.draw()
   end
 
   if showkeyparse and Keystroke.tree and Keystroke.tree.current then
-    Keystroke.tree:display(Keystroke.tree.root, true)
+    Keystroke.tree:display(Keystroke.tree.root, true, love.graphics, getwidth)
     return
   end
   
   if Syntax.tree.current then
     
-    Syntax.tree:display( Syntax.tree.root, not showlist )
+    Syntax.tree:display( Syntax.tree.root, not showlist, love.graphics, getwidth )
   
     if Syntax.state == "desc" then
       love.graphics.circle("fill", Syntax.tree.current.x + Syntax.tree.current.xlen/2, Syntax.tree.current.y + 1.5*fontheight, fontheight/2 )

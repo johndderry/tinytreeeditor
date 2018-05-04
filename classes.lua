@@ -175,29 +175,30 @@ function SynTree:outerChild( node )
 end
 
   
-function SynTree:setListPosition( x, y, node, depth )
+function SynTree:setListPosition( x, y, node, depth, getwidth )
   
   while node do
     node.x, node.y = x + 12*depth, y
     y = y + 1.2*fontheight
-    if node.child then y = self:setListPosition( x, y, node.child, depth+1) end
-    node.xlen = font:getWidth( node.name )
+    if node.child then y = self:setListPosition( x, y, node.child, depth+1, getwidth) end
+    node.xlen = getwidth( node.name )
     node = node.next
   end
   return y
 end
   
-function SynTree:setRowPosition( x, y, node )
+function SynTree:setRowPosition( x, y, node, getwidth )
   local first, namelen = true, 0
   local newx, returning
   local spacing = 4
   
   while node do
+    --io.write('setRowPosition: '..node.name..'\n')
     returning = false
     newx = x
-    namelen = font:getWidth( '(' .. node.name .. ')' )
+    namelen = getwidth( '(' .. node.name .. ')' )
     if node.child then 
-      newx = self:setRowPosition( x, y + 1.5*fontheight, node.child )
+      newx = self:setRowPosition( x, y + 1.5*fontheight, node.child, getwidth )
       returning = true
     end
     
@@ -217,21 +218,21 @@ function SynTree:setRowPosition( x, y, node )
   return x - (namelen + spacing)
 end
 
-function SynTree:display( node, treemode )
+function SynTree:display( node, treemode, graphics, getwidth )
   
   local tnode, lastnode = nil
   while node do
     
     if treemode and lastnode then
-      love.graphics.line(lastnode.x + font:getWidth('('..lastnode.name..')'), node.y+fontheight/2, node.x, node.y+fontheight/2 )
+      graphics.line(lastnode.x + getwidth('('..lastnode.name..')'), node.y+fontheight/2, node.x, node.y+fontheight/2 )
     end
     
     if node.child then
-      self:display( node.child, treemode )
+      self:display( node.child, treemode, graphics, getwidth )
       if treemode and node.name:sub(1,1) ~= '#' and
           node.x >= 0 and node.x < screenX and 
           node.y >= treeYbegin and node.y < screenY then
-        love.graphics.line(node.child.x + node.child.xlen/2, node.child.y,
+        graphics.line(node.child.x + node.child.xlen/2, node.child.y,
           node.x + node.xlen/2, node.y + fontheight )
       end
     end
@@ -239,26 +240,28 @@ function SynTree:display( node, treemode )
     if node.x >= -screenX/2 and node.x < screenX and node.y >= treeYbegin and node.y < screenY then 
       if node.selected then
         --local r, g, b, a = love.graphics.getColor()
-        love.graphics.rectangle("fill", node.x, node.y, node.xlen, fontheight )
-        love.graphics.setColor( 0, 0, 0, 255 ) 
+        graphics.rectangle("fill", node.x, node.y, node.xlen, fontheight )
+        graphics.setColor( 0, 0, 0, 255 ) 
+        graphics.setBackgroundColor(255, 255 ,255 ,255)
         if treemode then
-          love.graphics.print( '('.. node.name ..')', node.x, node.y )
+          graphics.print( '('.. node.name ..')', node.x, node.y )
         else
-          love.graphics.print( node.name, node.x, node.y )
+          graphics.print( node.name, node.x, node.y )
         end
-        love.graphics.setColor( 255, 255, 255, 255 )
+        graphics.setColor( 255, 255, 255, 255 )
+        graphics.setBackgroundColor( 0, 0, 0, 255 )         
         if not treemode and node.meaning then
-          love.graphics.print(' {' .. node.meaning .. '}', node.x + node.xlen, node.y )
+          graphics.print(' {' .. node.meaning .. '}', node.x + node.xlen, node.y )
         end
       elseif treemode then
-        love.graphics.print( '('.. node.name ..')', node.x, node.y )
+        graphics.print( '('.. node.name ..')', node.x, node.y )
       elseif node.meaning then
-        love.graphics.print( node.name, node.x, node.y )
-        love.graphics.setColor( 255, 100, 100, 255 ) 
-        love.graphics.print( '{' .. node.meaning .. '}', node.x + node.xlen+ 4, node.y )
-        love.graphics.setColor( 255, 255, 255, 255 ) 
+        graphics.print( node.name, node.x, node.y )
+        graphics.setColor( 255, 100, 100, 255 ) 
+        graphics.print( '{' .. node.meaning .. '}', node.x + node.xlen+ 4, node.y )
+        graphics.setColor( 255, 255, 255, 255 ) 
       else
-        love.graphics.print( node.name, node.x, node.y )
+        graphics.print( node.name, node.x, node.y )
       end
     end
     
