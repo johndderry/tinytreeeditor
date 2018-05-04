@@ -79,7 +79,7 @@ function sys.keyreleased( key )
       autoscroll = true
       return
     end
-    if ((key == key.down and not showlist) or (key == sys.right and showlist)) 
+    if ((key == sys.down and not showlist) or (key == sys.right and showlist)) 
           and p and p.child then
       p.selected = false
       p = p.child
@@ -669,7 +669,7 @@ if love then
   love.draw = sys.draw
   love.mousepressed = sys.mousepressed
   love.mousereleased = sys.mousereleased
-  love.mousemoved = sys.mousepressed
+  love.mousemoved = sys.mousemoved
   love.keypressed = sys.keypressed
   love.keyreleased = sys.keyreleased
 end
@@ -679,7 +679,7 @@ if allegro then
   allegro.draw = sys.draw
   allegro.mousepressed = sys.mousepressed
   allegro.mousereleased = sys.mousereleased
-  allegro.mousemoved = sys.mousepressed
+  allegro.mousemoved = sys.mousemoved
   allegro.keypressed = sys.keypressed
   allegro.keyreleased = sys.keyreleased
 end
