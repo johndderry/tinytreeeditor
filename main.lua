@@ -18,11 +18,13 @@ shift, defmode, editmode, autoscroll = false, false, false, true
 floadmode, fsavemode, falt, searchmode, mousehold = false, false, false, false, false
 showkeyparse, showlist = false, false
 
--- getwidth is a function we pass to setRowPosition()
-function getwidth( string )
-  return font:getWidth( string )
+if allegro then
+  sys = require "allegrodef"
+elseif love then
+  sys = require "lovedef"
+else
+  return
 end
-
 
 function adjustSelectScroll()
   
@@ -42,7 +44,7 @@ function adjustSelectScroll()
       scrollY = scrollY + screenY*0.1
     end
     
-    Syntax.tree:setRowPosition( 10 + scrollX, treeYbegin + scrollY, Syntax.tree.root, getwidth )
+    Syntax.tree:setRowPosition( 10 + scrollX, treeYbegin + scrollY, Syntax.tree.root, sys.getwidth )
   end
 end
 
@@ -50,45 +52,34 @@ end
 -- key event handlers
 ---------------------------------------------------------------------
 
-function love.keypressed( key )
-  if key == 'lshift' or key == 'rshift' then
+function sys.keypressed( key )
+  if key == sys.leftshift or key == key.rightshift then
     shift = true
-  end
-  if blurb > 0 then 
-    if key == 'escape' then blurb = 0
-    else blurb = blurb - 1
-    end  
   end
   showkeyparse = false
 end
 
-function love.keyreleased( key ) 
+function sys.keyreleased( key ) 
   local p = Syntax.tree.select
     
-  if blurb > 0 then return 
-  elseif blurb == 0 then
-    blurb = -1
-    return
-  end
-  
-  if key == 'lshift' or key == 'rshift' then
+  if key == sys.leftshift or key == sys.rightshift then
     shift = false
     return
   end
   
   if Keystroke.state == "pass" then  
-    if key == 'home' and p then
+    if key == sys.home and p then
       --p.selected = false
       --Syntax.tree.select = Syntax.tree.root
       --Syntax.tree.select.selected = true
       adjustSelectScroll()
       return
     end
-    if key == 'end' then
+    if key == sys._end then
       autoscroll = true
       return
     end
-    if ((key == 'down' and not showlist) or (key == 'right' and showlist)) 
+    if ((key == key.down and not showlist) or (key == sys.right and showlist)) 
           and p and p.child then
       p.selected = false
       p = p.child
@@ -97,7 +88,7 @@ function love.keyreleased( key )
       adjustSelectScroll()
       return
     end
-    if ((key == 'up' and not showlist) or (key == 'left' and showlist))
+    if ((key == sys.up and not showlist) or (key == sys.left and showlist))
           and p and p.parent then
       p.selected = false
       p = p.parent
@@ -106,7 +97,7 @@ function love.keyreleased( key )
       adjustSelectScroll()
       return
     end
-    if ((key == 'left' and not showlist) or (key == 'up' and showlist))
+    if ((key == sys.left and not showlist) or (key == sys.up and showlist))
           and p and p.prev then
       p.selected = false
       p = p.prev
@@ -115,7 +106,7 @@ function love.keyreleased( key )
       adjustSelectScroll()
       return
     end
-    if ((key == 'right' and not showlist) or (key == 'down' and showlist))
+    if ((key == sys.right and not showlist) or (key == sys.down and showlist))
         and p and p.next then
       p.selected = false
       p = p.next
@@ -126,7 +117,7 @@ function love.keyreleased( key )
     end
   end
   
-  if key == 'delete' and Syntax.tree.select then
+  if key == sys.delete and Syntax.tree.select then
     local newselect = Syntax.tree.select.prev
     if newselect == nil then newselect = Syntax.tree.select.parent end
     if newselect == nil then return end
@@ -141,18 +132,18 @@ function love.keyreleased( key )
     newselect.selected = true
     return
   end
-  if key == 'insert' and Syntax.tree.cutbuffer then
+  if key == sys.insert and Syntax.tree.cutbuffer then
     Syntax.tree:paste( Syntax.tree.select )
     return
   end
   
-  if key == 'f1' then
+  if key == sys.f1 then
     floadmode = true
     if shift then falt = true end
     return
   end
   if floadmode then
-    if key == 'return' then
+    if key == sys._return then
       floadmode = false
       local file = io.open(filename, "r")
       if file == nil then
@@ -174,10 +165,10 @@ function love.keyreleased( key )
       end
       falt = false
       return
-    elseif key == 'escape' then
+    elseif key == sys.escape then
       floadmode, falt = false, false
       return
-    elseif key == 'backspace' then
+    elseif key == sys.backspace then
       if #filename > 0 then
         filename = string.sub( filename, 1, #filename - 1 )
       end
@@ -194,13 +185,13 @@ function love.keyreleased( key )
     return
   end
   
-  if key == 'f2' then
+  if key == sys.f2 then
     fsavemode = true
     if shift then falt = true end
     return
   end
   if fsavemode then
-    if key == 'return' then
+    if key == sys._return then
       fsavemode = false
       local ss
       if falt then
@@ -217,10 +208,10 @@ function love.keyreleased( key )
       message = "**save successful**"
       falt = false
       return
-    elseif key == 'escape' then 
+    elseif key == sys.escape then 
       fsavemode, falt = false, false
       return
-    elseif key == 'backspace' then
+    elseif key == sys.backspace then
       if #filename > 0 then
         filename = string.sub( filename, 1, #filename - 1 )
       end
@@ -237,12 +228,12 @@ function love.keyreleased( key )
     return
   end
     
-  if key == 'f3' then
+  if key == sys.f3 then
     searchmode = true
     return
   end
   if searchmode then
-    if key == 'return' then
+    if key == sys._return then
       searchmode = false
       local node = Syntax.tree:search( Syntax.tree.root, searchstr )
       if node then
@@ -254,16 +245,16 @@ function love.keyreleased( key )
         message = "!!not found!!"
       end
       return
-    elseif key == 'escape' then
+    elseif key == sys.escape then
       searchmode = false
       return
-    elseif key == 'backspace' then
+    elseif key == sys.backspace then
       if #searchstr > 0 then
         searchstr = string.sub( searchstr, 1, #searchstr - 1 )
       end
       return
     end
-    if key == 'space' then key = ' ' end
+    if key == sys.space then key = ' ' end
     if shift then 
       local k = MyShift[key]
       if k then key = k
@@ -276,7 +267,7 @@ function love.keyreleased( key )
     return
   end
   
-  if key == 'f4' then
+  if key == sys.f4 then
     if shift then
       if Keystroke.state == "pass" then
         Keystroke.cursor = Keystroke.altcursor
@@ -302,31 +293,60 @@ function love.keyreleased( key )
     return
   end
   
-  if key == 'f5' then
+  if key == sys.f5 then
     Syntax.tree:sortLevel( Syntax.tree.select, not shift )
     return
   end
   
-  if key == 'f6' then 
+  if key == sys.f6 then 
     if shift then Syntax.tree:deleteRoot()
     else          Syntax.tree:insertRoot('Untitled')
     end  
     return
   end
   
-  if key == 'f9' then 
+  if key == sys.f8 and allegro then 
+    io.write('out.mid:\n')
+
+    local sortednotes = MidiLib.SortedNotesNew()
+    ToMidi.setsortednotes( sortednotes )
+    
+    local start = Syntax.tree.root
+    while start and start.name:sub(1,1) == '#' do start = start.child end
+    
+    ToMidi.evalAsRepeat( start, "initial" )
+    
+    local count = MidiLib.SortedNotesCount( sortednotes )
+    local track = MidiLib.TrackNew( 6*count + 2 )
+    MidiLib.SortedNotesTrackNotes( sortednotes, track )
+    local tracklen = MidiLib.TrackLength( track ) 
+    local midifile = MidiLib.MidiFileNew("out.mid", "w")
+    MidiLib.MidiFileWriteChunk( midifile, track );
+    MidiLib.SortedNotesDelete( sortednotes )
+    MidiLib.TrackDelete( track )
+    MidiLib.MidiFileDelete( midifile )
+
+    io.write('tracklen = ' .. tracklen .. ' complete.\n')
+    allegro.playmidi("out.mid"); 
+
+    return
+  end
+    
+  if key == sys.f9 then 
     if shift then showlist = not showlist
-    else
-      blurb = 3 return
     end
     return
   end
     
-  if key == 'f10' then love.event.quit() return end
+  if key == sys.f10 then sys.quit() return end
   --
   -- at this point filter out some key events we don't want to record
   --
-  if key == 'insert' or key == 'delete' then return end
+  if key == sys.insert or key == sys.delete then return end
+  --
+  -- fix up allegro punctuation keys
+  --
+  if allegro then key = Punctuation[key] or key end
     
   --
   -- deal with editmode and defmode ( define meaning )
@@ -369,8 +389,8 @@ function love.keyreleased( key )
       end
       return
     end
-    if key == 'return' or key == 'space' or key == 'tab' then key = ' '
-    elseif key == 'backspace' then
+    if key == sys._return or key == sys.space or key == sys.tab then key = ' '
+    elseif key == sys.backspace then
       if #definition > 0 then
         definition = string.sub( definition, 1, #definition - 1 )
       end
@@ -391,7 +411,7 @@ function love.keyreleased( key )
   -- now we call one of the state machines
   --
   
-  if key == 'backspace' then
+  if key == sys.backspace then
     if #Keystroke.input > 0 then
       Keystroke.current = Keystroke.nextState( key, Keystroke.current )
       return
@@ -400,7 +420,7 @@ function love.keyreleased( key )
     return
   end
 
-  if key == 'tab' or key == 'return' then
+  if key == sys.tab or key == sys._return then
     
     if Keystroke.state ~= "pass" and Keystroke.state ~= "init" and 
         Keystroke.state ~= "valid" and Keystroke.state ~= "term" and
@@ -408,7 +428,7 @@ function love.keyreleased( key )
       return
     end
     
-    if key == 'tab' then key = '\t'
+    if key == sys.tab then key = '\t'
     else key = '\n' end
   
     if #Keystroke.input > 0 then 
@@ -432,7 +452,7 @@ function love.keyreleased( key )
     return
   end
   
-  if key == 'space' then key = ' '
+  if key == sys.space then key = ' '
   elseif shift then
     local k = MyShift[key]
     if k then key = k
@@ -447,7 +467,7 @@ end
 -- mouse event handlers
 ---------------------------------------------------------------------
 
-function love.mousepressed( x, y, button )
+function sys.mousepressed( x, y, button )
   
   if button ~= 1 then return end
   
@@ -457,7 +477,7 @@ function love.mousepressed( x, y, button )
   return
 end
 
-function love.mousemoved( x, y, dx, dy )
+function sys.mousemoved( x, y, dx, dy )
   
   if not mousehold then return end
     
@@ -466,7 +486,7 @@ function love.mousemoved( x, y, dx, dy )
   return
 end
   
-function love.mousereleased( x, y, button )
+function sys.mousereleased( x, y, button )
   
   if button ~= 1 then return end
   
@@ -489,7 +509,7 @@ end
 -- load and update handlers
 ---------------------------------------------------------------------
 
-function love.load( arg )
+function sys.load( arg )
   
   fontsize = 12
   screenX, screenY  = 800, 600
@@ -511,33 +531,32 @@ function love.load( arg )
     end
   end
   
-  love.window.setMode( screenX, screenY )
-  screenX, screenY  = love.graphics.getDimensions()
-  love.window.setTitle( "(Tiny) Tree Editor" )
+  if love then
+    love.window.setMode( screenX, screenY )
+    screenX, screenY  = love.graphics.getDimensions()
+    love.window.setTitle( "(Tiny) Tree Editor" )
+    font = love.graphics.setNewFont( fontsize )
+  end
+  if allegro then
+    allegro.setMode( screenX, screenY )
+    allegro.setTitle( "(Tiny) Tree Editor" )
+    MidiLib = require("libluamidi")
+    ToMidi = require("tomidi")
+    ToMidi.setmidilib( MidiLib )
+  end
   
-  font = love.graphics.setNewFont( fontsize )
-  fontheight = font:getHeight()
+  fontheight = sys.fontheight()
   
   Keystroke.init()
-  love.keyboard.setTextInput( true )
   
   treeYbegin = 16 + 4*fontheight
   
-  if love.filesystem.exists("Blurb1.png") and love.filesystem.exists("Blurb2.png") and 
-     love.filesystem.exists("Blurb3.png") then
-    blurb1pix = love.graphics.newImage( "Blurb1.png" )
-    blurb2pix = love.graphics.newImage( "Blurb2.png" )
-    blurb3pix = love.graphics.newImage( "Blurb3.png" )
-    blurb = 3
-  else
-    blurb = 0
-  end
 end
 
-function love.update()
+function sys.update()
   
   if showkeyparse and Keystroke.tree and Keystroke.tree.current then
-    Keystroke.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Keystroke.tree.root, getwidth)
+    Keystroke.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Keystroke.tree.root, sys.getwidth)
     return
   end
     
@@ -545,7 +564,7 @@ function love.update()
     if showlist then
       Syntax.tree:setListPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, 1 )
     else
-      Syntax.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, getwidth )
+      Syntax.tree:setRowPosition( 8 + scrollX, treeYbegin + scrollY, Syntax.tree.root, sys.getwidth )
     end
     
     if autoscroll and Syntax.tree.current then
@@ -566,86 +585,101 @@ end
 -- drawing event handlers
 ---------------------------------------------------------------------
 
-function love.draw()  
+function sys.draw()  
   
-  if blurb > 0 then
-    if blurb == 3 then
-      love.graphics.draw( blurb1pix, 0, 0 )
-    elseif blurb == 2 then
-      love.graphics.draw( blurb2pix, 0, 0 )
-    elseif blurb == 1 then
-      love.graphics.draw( blurb3pix, 0, 0 )
-    end
-    return
-  end
-
-  love.graphics.setColor( 25, 25, 25 )
-  love.graphics.rectangle( "fill", 0, 0, screenX, screenY )
+  sys.graphics.setColor( 25, 25, 25 )
+  sys.graphics.rectangle( "fill", 0, 0, screenX, screenY )
   
-  love.graphics.setColor( 100, 50, 0, 255 )
-  love.graphics.rectangle( "fill", 0, 0, screenX, fontheight + 4 )
+  sys.graphics.setColor( 100, 50, 0, 255 )
+  sys.graphics.rectangle( "fill", 0, 0, screenX, fontheight + 4 )
   
-  love.graphics.setColor( 0, 100, 50, 255 )
-  love.graphics.rectangle( "fill", 0, fontheight + 4, screenX, fontheight + 4  )
+  sys.graphics.setColor( 0, 100, 50, 255 )
+  sys.graphics.rectangle( "fill", 0, fontheight + 4, screenX, fontheight + 4  )
   
-  Keystroke.cursor.x = 8 + font:getWidth( Keystroke.input )
+  Keystroke.cursor.x = 8 + sys.getwidth( Keystroke.input )
   
-  love.graphics.setColor( Keystroke.cursor.r, Keystroke.cursor.g, Keystroke.cursor.b, 255 )
-  love.graphics.rectangle("fill", Keystroke.cursor.x, Keystroke.cursor.y, Keystroke.cursor.width, Keystroke.cursor.height )
+  sys.graphics.setColor( Keystroke.cursor.r, Keystroke.cursor.g, Keystroke.cursor.b, 255 )
+  sys.graphics.rectangle("fill", Keystroke.cursor.x, Keystroke.cursor.y, Keystroke.cursor.width, Keystroke.cursor.height )
   
-  love.graphics.setColor( 255, 255, 255, 255 )
+  sys.graphics.setColor( 255, 255, 255, 255 )
+  sys.graphics.setBackgroundColor( 100, 50, 0, 255 )
   
   if searchmode then
-    love.graphics.print( "Search for Node: " .. searchstr, 2, 2 )
+    sys.graphics.print( "Search for Node: " .. searchstr, 2, 2 )
   elseif floadmode then
-    love.graphics.print( "File to Load: " .. filename, 2, 2 )
+    sys.graphics.print( "File to Load: " .. filename, 2, 2 )
   elseif fsavemode then
-    love.graphics.print( "File to Save: " .. filename, 2, 2 )
+    sys.graphics.print( "File to Save: " .. filename, 2, 2 )
   elseif shift then
-    love.graphics.print( "Use Arrow/Home/End to navigate for editing. Insert/Delete to cut&paste, `\\' to edit.", 2, 2) 
-    love.graphics.print( "F1 Alt-Load/F2 Alt-Save/F3/F4 Restrictive Mode/F5 Reverse Sort/F6 Delete Root/../F9 List View/F10", 2, 6 + fontheight ) 
+    sys.graphics.print( "Use Arrow/Home/End to navigate for editing. Insert/Delete to cut&paste, `\\' to edit.", 2, 2) 
+    sys.graphics.setBackgroundColor( 0, 100, 50, 255 )
+    sys.graphics.print( "F1 Alt-Load/F2 Alt-Save/F3/F4 Restrictive Mode/F5 Reverse Sort/F6 Delete Root/../F9 List View/F10", 2, 6 + fontheight ) 
   elseif message then
-    love.graphics.print( message, 2, 2 )
+    sys.graphics.print( message, 2, 2 )
   else
-    love.graphics.print( "Enter SOMETHING then `enter' to descend, `tab' to remain at that level. `{' your_meaning `}' to add meaning. Shift=more help", 2, 2) 
-    love.graphics.print( "F1 Load/F2 Save/F3 Search/F4 Reference Swap/F5 Sort/F6 Insert Root/../F9 Intro/F10 Exit", 2, 6 + fontheight ) 
+    sys.graphics.print( "Enter SOMETHING then `enter' to descend, `tab' to remain at that level. `{' your_meaning `}' to add meaning. Shift=more help", 2, 2)
+    sys.graphics.setBackgroundColor( 0, 100, 50, 255 )
+    sys.graphics.print( "F1 Load/F2 Save/F3 Search/F4 Reference Swap/F5 Sort/F6 Insert Root/../F8 Gen Midi/F9 Help/F10 Exit", 2, 6 + fontheight ) 
   end
+
+  sys.graphics.setBackgroundColor(0, 0, 0, 255 )
 
   if #Keystroke.input > 0 then
     if Keystroke.state == "valid" or Keystroke.state == "term" then
-      love.graphics.setColor( 0, 255, 0, 255 )
-      love.graphics.print( Keystroke.input, 8, 14 + 3*fontheight )
-      love.graphics.setColor( 255, 255, 255, 255 )
+      sys.graphics.setColor( 0, 255, 0, 255 )
+      sys.graphics.print( Keystroke.input, 8, 14 + 3*fontheight )
+      sys.graphics.setColor( 255, 255, 255, 255 )
     elseif Keystroke.state == "hyper" then
-      love.graphics.print( Keystroke.hyper[Keystroke.hindex], 8, 14 + 3*fontheight )
+      sys.graphics.print( Keystroke.hyper[Keystroke.hindex], 8, 14 + 3*fontheight )
     else
-      love.graphics.print( Keystroke.input, 8, 14 + 3*fontheight )
+      sys.graphics.print( Keystroke.input, 8, 14 + 3*fontheight )
     end
   end
   if Keystroke.hyper then
     local n = Syntax.refindex[Keystroke.hyper[Keystroke.hindex]]
-    if n then love.graphics.print( '{'.. n.meaning .. '}', 8, 10 + 2 * fontheight ) end
+    if n then sys.graphics.print( '{'.. n.meaning .. '}', 8, 10 + 2 * fontheight ) end
   elseif defmode then
-    love.graphics.print('{' .. definition, 8, 10 + 2 * fontheight )
+    sys.graphics.print('{' .. definition, 8, 10 + 2 * fontheight )
   end
 
   if showkeyparse and Keystroke.tree and Keystroke.tree.current then
-    Keystroke.tree:display(Keystroke.tree.root, true, love.graphics, getwidth)
+    Keystroke.tree:display(Keystroke.tree.root, true, sys.graphics, sys.getwidth)
     return
   end
   
   if Syntax.tree.current then
     
-    Syntax.tree:display( Syntax.tree.root, not showlist, love.graphics, getwidth )
+    Syntax.tree:display( Syntax.tree.root, not showlist, sys.graphics, sys.getwidth )
   
     if Syntax.state == "desc" then
-      love.graphics.circle("fill", Syntax.tree.current.x + Syntax.tree.current.xlen/2, Syntax.tree.current.y + 1.5*fontheight, fontheight/2 )
+      sys.graphics.circle("fill", Syntax.tree.current.x + Syntax.tree.current.xlen/2, Syntax.tree.current.y + 1.5*fontheight, fontheight/2 )
     elseif Syntax.state == "wait" then
-      love.graphics.circle("fill", Syntax.tree.current.x + Syntax.tree.current.xlen + fontheight/2, Syntax.tree.current.y + fontheight/2, fontheight/2 )
+      sys.graphics.circle("fill", Syntax.tree.current.x + Syntax.tree.current.xlen + fontheight/2, Syntax.tree.current.y + fontheight/2, fontheight/2 )
     end
     
   else
-    love.graphics.circle("fill", 16, 22 + 4 * fontheight, fontheight/2 )    
+    sys.graphics.circle("fill", 16, 22 + 4 * fontheight, fontheight/2 )    
   end
   
+end
+
+if love then
+  love.load = sys.load
+  love.update = sys.update
+  love.draw = sys.draw
+  love.mousepressed = sys.mousepressed
+  love.mousereleased = sys.mousereleased
+  love.mousemoved = sys.mousepressed
+  love.keypressed = sys.keypressed
+  love.keyreleased = sys.keyreleased
+end
+if allegro then
+  allegro.load = sys.load
+  allegro.update = sys.update
+  allegro.draw = sys.draw
+  allegro.mousepressed = sys.mousepressed
+  allegro.mousereleased = sys.mousereleased
+  allegro.mousemoved = sys.mousepressed
+  allegro.keypressed = sys.keypressed
+  allegro.keyreleased = sys.keyreleased
 end

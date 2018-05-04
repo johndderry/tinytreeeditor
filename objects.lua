@@ -33,7 +33,7 @@ end
 Keystroke.nextState = function( key, node )
   
   if Keystroke.state == "pass" then 
-    if key == "backspace" then
+    if key == sys.backspace then
       Keystroke.input = string.sub( Keystroke.input, 1, #Keystroke.input - 1 )
       Keystroke.depth = Keystroke.depth + 1
       return node
@@ -43,14 +43,16 @@ Keystroke.nextState = function( key, node )
       Keystroke.input = ''
       return node
     end
-    if key == 'left' or key == 'right' or key == 'up' or key == 'down' then return node end
+    if key == sys.left or key == sys.right or key == sys.up or key == sys.down then 
+      return node 
+    end
     Keystroke.input = Keystroke.input .. key
     Keystroke.depth = Keystroke.depth + 1
     return node
   end
     
   if Keystroke.state ~= "pass" then    
-    if key == 'right' then
+    if key == sys.right then
       Keystroke.state = "hyper"
       Keystroke.hindex = 1
       Keystroke.hyper = {}
@@ -59,32 +61,32 @@ Keystroke.nextState = function( key, node )
       else
         Keystroke.tree:genList( Keystroke.hyper, node )
       end
-      Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
+      Keystroke.cursor.width = sys.getwidth( Keystroke.hyper[Keystroke.hindex] ) - sys.getwidth( Keystroke.input )
       return node
     end
-    if key == 'left' then
+    if key == sys.left then
       Keystroke.state = "cont"
       Keystroke.hyper = nil
       Keystroke.cursor.width = fontsize
       return node
     end
     if Keystroke.state == "hyper" then
-      if key == 'up' then
+      if key == sys.up then
         if Keystroke.hindex < #Keystroke.hyper then Keystroke.hindex = Keystroke.hindex + 1 end
-        Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
+        Keystroke.cursor.width = sys.getwidth( Keystroke.hyper[Keystroke.hindex] ) - sys.getwidth( Keystroke.input )
       end
-      if key == 'down' then
+      if key == sys.down then
         if Keystroke.hindex > 1 then Keystroke.hindex = Keystroke.hindex - 1 end
-        Keystroke.cursor.width = font:getWidth( Keystroke.hyper[Keystroke.hindex] ) - font:getWidth( Keystroke.input )
+        Keystroke.cursor.width = sys.getwidth( Keystroke.hyper[Keystroke.hindex] ) - sys.getwidth( Keystroke.input )
       end
       return node
     else
-      if key == 'up' or key == 'down' then return node end
+      if key == sys.up or key == sys.down then return node end
     end
   end      
         
   if Keystroke.state == "term" then
-    if key == "backspace" then
+    if key == sys.backspace then
       Keystroke.input = string.sub( Keystroke.input, 1, #Keystroke.input - 1 )
       Keystroke.depth = Keystroke.depth - 1
       Keystroke.state = "continue"
@@ -115,7 +117,7 @@ Keystroke.nextState = function( key, node )
       return node
     end
     
-    if key == "backspace" then
+    if key == sys.backspace then
       Keystroke.input = string.sub( Keystroke.input, 1, #Keystroke.input - 1 )
       Keystroke.depth = Keystroke.depth - 1
       if Keystroke.depth == 0 then Keystroke.state = "init" end
@@ -166,7 +168,7 @@ Syntax.nextState = function ( input, node )
   
   if Syntax.state == "init" then
     
-    if input == '\n' or input == '\t' or input == 'backspace' then 
+    if input == '\n' or input == '\t' or input == sys.backspace then 
       return nil
     end
     
@@ -202,7 +204,7 @@ Syntax.nextState = function ( input, node )
       end
     end
     
-    if input == 'backspace' then      
+    if input == sys.backspace then      
       local prev = node.prev
       Syntax.tree:cut( node )
       if prev then return prev
@@ -251,7 +253,7 @@ Syntax.nextState = function ( input, node )
       end      
     end
     
-    if input == 'backspace' then
+    if input == sys.backspace then
       local prev = node.prev
       Syntax.tree:cut( node )
       Syntax.state = "desc"
