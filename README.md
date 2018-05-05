@@ -41,7 +41,8 @@ by tab and newline characters. Shifted function keys for JSON style.
 
 The editor tool can hold two trees in memory, but only one is being
 displayed. The second tree is treated a reference tree and is not
-displayed. When a tree becomes the reference tree it serves to
+displayed. Use F4 to swap the main tree and the reference tree.
+When a tree becomes the reference tree it serves to
 provide additional relationships, and possible restrict what can be 
 entered into the main tree nodes. Shifted F4 toggles entry restriction.
 
@@ -65,3 +66,37 @@ right arrow key to call up hyper mode. Immediately you will see the first
 possibility presented, where the completion text is highlighted as part 
 of the cursor. Use tab or enter key to accept this offer, of use the
 up and down arrow keys to call up all other possible completions.
+
+#### Working with Multiple Trees Segments
+
+Tiny Tree Editor can work with your tree as separate segments instead of
+one large tree. To create a segment, "tear off" a section of a tree.
+Do this by selecting a node with the mouse by moving the mouse over the 
+node, then while holding the left button down and holding the shift key down,
+move the mouse away from the tree node into a clear area. When the desired
+location is obtained, let the mouse button up.
+
+When multiple segments are showing, clicking the segment with the mouse will
+select it as the active segment. Once active, it will have both a selected
+node (highlighted) and a current node where nodes are being added.
+The active segment can also be moved around, independent of other segments,
+by grabbing a node with the mouse and moving it. Place the mouse over a node,
+then while holding the left mouse button down move the mouse to the new location,
+then release the button.
+
+Cutting and pasting nodes from one segment to another works. Segments can
+also be joined. To join segments, place the head node of one tree over another
+tree at the place to be joined. Now hold down the shift and enter tab to join
+the first tree to the second as a sibling, or shift and enter to join the first
+tree as a child of the second tree.
+
+#### Using Work Spaces
+
+Working spaces are organized as multiple pages using the Page Up and Page Down 
+keys. An empty tree must be filled on the initial page. Once a tree segment
+exists, the segment can be moved to another workspace. To do this, move the
+mouse to a node of the desired segment and while holding the mouse left down,
+use the Page Up or Page Down keys to switch to another workspace. Now left the
+mouse button up and the segment will be placed in the new workspace.
+
+
