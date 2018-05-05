@@ -175,7 +175,7 @@ local subOP = function( src, op )
   return { RevNotes[a+1], a, b, c }
 end
 
-local evalAsOperator = function( node, otype )
+evalAsOperator = function( node, otype )
 
   local first
   if Operators[node.name] then
@@ -276,7 +276,7 @@ local function evalAsParallel( node, ptype )
   return 0  
 end    
 
-local function evalAsRepeat( node, rtype )
+function evalAsRepeat( node, rtype )
   
   local rep, val
   if Digits[node.name] then
@@ -347,8 +347,77 @@ local function evalAsRepeat( node, rtype )
     end
     rep = rep - 1
   end
+  
   return 0  
 end    
+
+local function evalAsList( node, rtype )
+  
+  local val
+  while node do
+    if Digits[node.name] then
+      Numerator = tonumber( node.name )
+      if node.child then
+        Denominator = tonumber( node.child.name )
+      end              
+    elseif node.name == '*' then
+      if node.child then
+        local num = tonumber( node.child.name )
+        if node.child.child then
+          local den = tonumber( node.child.child.name )
+          Time = Time + ( (num * 4) / den ) * 96
+        else
+          Time = Time + ( (num * 4) / Denominator ) * 96
+        end
+      else
+          Time = Time + ( (Numerator * 4) / Denominator ) * 96
+      end
+    elseif Notes[node.name] then
+      outputNote( node.name, noteDetail( node ) ) 
+      
+    elseif Operators[node.name] then
+      outputNote( node.name, evalAsOperator( node.child, node.name ) )
+      
+    elseif Block[node.name] == 0 then
+      evalAsRepeat( node.child, node.name )
+    
+    elseif Block[node.name] == 1 then
+      evalAsParallel( node.child, node.name )
+    
+    elseif BuiltIn[node.name] then
+      evalAsBuiltIn( node.child, node.name )
+      
+    else
+      -- consider as variable
+      val = Variables[node.name]
+      if not val then val, Variables[node.name] =  {'a',0,-1,-1}, {'a',0,-1,-1} end
+      if node.child then
+        -- set the variable
+        setVariable( node )        
+      else
+        -- read the variable
+        if val[5] then
+          evalAsRepeat( val[5].child, val[5].name )    
+        else
+          outputNote( node.name, val )
+        end
+      end
+    end
+    node = node.next
+  end
+  
+  return 0  
+end    
+
+local function reset()
+  Numerator = 4
+  Denominator = 4
+  Keyoffset = 0
+  Channel = 0
+  Velocity = 127
+  Time = 0
+  Mode = Modes.ionian
+end
 
 local setmidilib = function( lib )
   MidiLib = lib
@@ -360,9 +429,11 @@ end
 
 local tomidi = {}
 
+tomidi.reset = reset
 tomidi.setmidilib = setmidilib
 tomidi.setsortednotes = setsortednotes
 tomidi.evalAsRepeat = evalAsRepeat
 tomidi.evalAsParallel = evalAsParallel
+tomidi.evalAsList = evalAsList
 
 return tomidi

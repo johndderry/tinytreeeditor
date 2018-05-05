@@ -10,7 +10,7 @@ ToMidi = require "tomidi"
 
 ToMidi.setmidilib( MidiLib )
 
-filename = "ex1.m"
+filename = "ex2.m"
 if arg then
   if arg[#arg] == "-debug" then require("mobdebug").start() end
   if #arg > 0 then filename = arg[1] end

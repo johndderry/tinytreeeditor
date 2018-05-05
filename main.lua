@@ -272,6 +272,7 @@ function sys.keyreleased( key )
       end
       return
     end
+    if allegro then key = Punctuation[key] or key end
     if shift then 
       local k = MyShift[key]
       if k then key = k
@@ -315,6 +316,7 @@ function sys.keyreleased( key )
       end
       return
     end
+    if allegro then key = Punctuation[key] or key end
     if shift then 
       local k = MyShift[key]
       if k then key = k
@@ -353,6 +355,7 @@ function sys.keyreleased( key )
       return
     end
     if key == sys.space then key = ' ' end
+    if allegro then key = Punctuation[key] or key end    
     if shift then 
       local k = MyShift[key]
       if k then key = k
@@ -409,10 +412,17 @@ function sys.keyreleased( key )
     local sortednotes = MidiLib.SortedNotesNew()
     ToMidi.setsortednotes( sortednotes )
     
-    local start = Syntax.tree.root
-    while start and start.name:sub(1,1) == '#' do start = start.child end
-    
-    ToMidi.evalAsRepeat( start, "initial" )
+    local start
+    if shift then
+      start = Syntax.tree.select
+      ToMidi.reset()
+      ToMidi.evalAsList( start, "initial" )
+    else
+      start = Syntax.tree.root
+      while start and start.name:sub(1,1) == '#' do start = start.child end
+      ToMidi.reset()
+      ToMidi.evalAsList( start, "initial" )
+    end
     
     local count = MidiLib.SortedNotesCount( sortednotes )
     local track = MidiLib.TrackNew( 6*count + 2 )
@@ -591,6 +601,7 @@ function sys.load( arg )
   
   fontsize = 12
   screenX, screenY  = 800, 600
+ 
   if arg then
     if arg[#arg] == "-debug" then require("mobdebug").start() end
     local argn
