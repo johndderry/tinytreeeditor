@@ -189,34 +189,37 @@ function SynTree:setListPosition( x, y, node, depth, getwidth )
 end
   
 function SynTree:setTreePosition( x, y, node, getwidth )
-  local first, namelen = true, 0
+  local namelen
   local newx, returning
   local spacing = 4
   
   while node do
     --io.write('setRowPosition: '..node.name..'\n')
     returning = false
-    newx = x
+    --newx = x
     namelen = getwidth( '(' .. node.name .. ')' )
     if node.child then 
       newx = self:setTreePosition( x, y + 1.5*fontheight, node.child, getwidth )
       returning = true
     end
     
+    node.x = x + self.xoffs
     if returning then
-      node.x = x + self.xoffs
-      x = newx
-      returning = false
+      if newx > x+namelen+spacing then
+        x = newx
+      else
+        x = x + namelen + spacing      
+      end  
     else
-      node.x = x + self.xoffs
+      x = x + namelen + spacing      
     end
     node.xlen = namelen
     node.y = y + self.yoffs
     
-    x = x + namelen + spacing
     node = node.next
   end
-  return x - (namelen + spacing)
+  --return x - (namelen + spacing)
+  return x
 end
 
 function SynTree:display( node, treemode, graphics, getwidth )

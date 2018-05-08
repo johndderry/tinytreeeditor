@@ -604,8 +604,9 @@ function sys.load( arg )
  
   if arg then
     if arg[#arg] == "-debug" then require("mobdebug").start() end
-    local argn
-    for argn = 2, #arg do
+    local argn = 2
+    while argn <= #arg do
+      io.write('argn='..argn..' looking at '..arg[argn]..'\n')
       local a = arg[argn]
       if a == "-fontsize" then
         argn = argn + 1
@@ -617,6 +618,7 @@ function sys.load( arg )
         argn = argn + 1
         screenY = tonumber( arg[argn] )        
       end
+      argn = argn+1
     end
   end
   
