@@ -19,12 +19,13 @@ shift, defmode, editmode, autoscroll = false, false, false, true
 floadmode, fsavemode, falt, searchmode = false, false, false, false
 mousehold, mouseTreehold = false, false 
 showkeyparse, showlist = false, false
+capturemode, metro = false, false
 
-if allegro then
-  sys = require "allegrodef"
-elseif love then
+if love then
   sys = require "lovedef"
-else
+elseif sdl then
+  sys = require "sdldef"
+else  
   return
 end
 
@@ -48,6 +49,30 @@ function adjustSelectScroll()
     
     Syntax.tree:setTreePosition( 10 + scrollX, treeYbegin + scrollY, Syntax.tree.root, sys.getwidth )
   end
+end
+
+---------------------------------------------------------------------
+-- midi event handlers
+---------------------------------------------------------------------
+
+function sys.noteon( channel, pitch, velocity, time )
+  
+  if capturemode then
+    converter.noteon( channel, pitch, velocity, time)
+  end
+  alsa.sendnoteon( channel, pitch, velocity, time )
+  alsa.drain()
+  
+end
+
+function sys.noteoff( channel, pitch, velocity, time )
+  
+  if capturemode then
+    converter.noteoff( channel, pitch, velocity, time)
+  end
+  alsa.sendnoteoff( channel, pitch, velocity, time )
+  alsa.drain()
+  
 end
 
 ---------------------------------------------------------------------
@@ -135,7 +160,11 @@ end
 ---------------------------------------------------------------------
 
 function sys.keypressed( key )
-  if key == sys.leftshift or key == key.rightshift then
+  if key == sys.leftshift or key == sys.rightshift then
+    if alsa then
+      converter.first()
+      if shift then alsa.clear() end
+    end
     shift = true
   end
   showkeyparse = false
@@ -369,6 +398,11 @@ function sys.keyreleased( key )
   end
   
   if key == sys.f4 then
+    Syntax.tree:sortLevel( Syntax.tree.select, not shift )
+    return
+  end
+  
+  if key == sys.f5 then
     if shift then
       if Keystroke.state == "pass" then
         Keystroke.cursor = Keystroke.altcursor
@@ -394,11 +428,6 @@ function sys.keyreleased( key )
     return
   end
   
-  if key == sys.f5 then
-    Syntax.tree:sortLevel( Syntax.tree.select, not shift )
-    return
-  end
-  
   if key == sys.f6 then 
     if shift then Syntax.tree:deleteRoot()
     else          Syntax.tree:insertRoot('Untitled')
@@ -406,37 +435,37 @@ function sys.keyreleased( key )
     return
   end
   
-  if key == sys.f8 and allegro then 
-    io.write('out.mid:\n')
-
-    local sortednotes = MidiLib.SortedNotesNew()
-    ToMidi.setsortednotes( sortednotes )
-    
+  if key == sys.f7 and alsa then
+    if shift then 
+      capturemode = not capturemode
+      if capturemode then converter.first() end
+    else 
+      metro = not metro
+      alsa.metronome( metro )
+    end
+    return
+  end
+  
+  if key == sys.f8 and alsa then 
+    alsa.stop()
+    alsa.drain()
+    local tick, events = alsa.tick()
+    local rem = tick % 96
+    tick = tick + 96 - rem
+    io.write("start tick="..tick.."\n")
+    converter.reset( tick )
+    alsa.continue();    
     local start
     if shift then
       start = Syntax.tree.select
-      ToMidi.reset()
-      ToMidi.evalAsList( start, "initial" )
+      converter.evalAsList( start, "initial" )
     else
       start = Syntax.tree.root
       while start and start.name:sub(1,1) == '#' do start = start.child end
-      ToMidi.reset()
-      ToMidi.evalAsList( start, "initial" )
+      converter.evalAsList( start, "initial" )
     end
+    alsa.drain()
     
-    local count = MidiLib.SortedNotesCount( sortednotes )
-    local track = MidiLib.TrackNew( 6*count + 2 )
-    MidiLib.SortedNotesTrackNotes( sortednotes, track )
-    local tracklen = MidiLib.TrackLength( track ) 
-    local midifile = MidiLib.MidiFileNew("out.mid", "w")
-    MidiLib.MidiFileWriteChunk( midifile, track );
-    MidiLib.SortedNotesDelete( sortednotes )
-    MidiLib.TrackDelete( track )
-    MidiLib.MidiFileDelete( midifile )
-
-    io.write('tracklen = ' .. tracklen .. ' complete.\n')
-    allegro.playmidi("out.mid"); 
-
     return
   end
     
@@ -446,7 +475,14 @@ function sys.keyreleased( key )
     return
   end
     
-  if key == sys.f10 then sys.quit() return end
+  if key == sys.f10 then 
+    if alsa then 
+      alsa.queueoff()
+      alsa.close()
+    end
+    sys.quit()
+    return
+  end
   --
   -- at this point filter out some key events we don't want to record
   --
@@ -606,7 +642,6 @@ function sys.load( arg )
     if arg[#arg] == "-debug" then require("mobdebug").start() end
     local argn = 2
     while argn <= #arg do
-      io.write('argn='..argn..' looking at '..arg[argn]..'\n')
       local a = arg[argn]
       if a == "-fontsize" then
         argn = argn + 1
@@ -622,18 +657,28 @@ function sys.load( arg )
     end
   end
   
+  converter = require("convertmidi")
+  alsa = require("libluaalsa")
+  
   if love then
     love.window.setMode( screenX, screenY )
     screenX, screenY  = love.graphics.getDimensions()
     love.window.setTitle( "(Tiny) Tree Editor" )
     font = love.graphics.setNewFont( fontsize )
   end
-  if allegro then
-    allegro.setMode( screenX, screenY )
-    allegro.setTitle( "(Tiny) Tree Editor" )
-    MidiLib = require("libluamidi")
-    ToMidi = require("tomidi")
-    ToMidi.setmidilib( MidiLib )
+  if sdl then
+    sdl.setMode( screenX, screenY )
+    sdl.setTitle( "(Tiny) Tree Editor" )
+    local f = sdl.newFont("8x14.bmp", 8, 14, 0, 0, 0, 0, 0, 16, 256 )
+    sdl.setFont( f ) 
+  end
+  if alsa then
+    alsa.noteon = sys.noteon
+    alsa.noteoff = sys.noteoff
+    alsa.init()
+    alsa.queueon()
+    alsa.start()
+    alsa.drain()
   end
   
   fontheight = sys.fontheight()
@@ -645,6 +690,8 @@ function sys.load( arg )
 end
 
 function sys.update()
+  
+  if alsa then alsa.update() end
   
   if showkeyparse and Keystroke.tree and Keystroke.tree.current then
     Keystroke.tree:setTreePosition( 8 + scrollX, treeYbegin + scrollY, Keystroke.tree.root, sys.getwidth)
@@ -680,13 +727,13 @@ end
 
 function sys.draw()  
   
-  sys.graphics.setColor( 25, 25, 25 )
+  sys.graphics.setColor( 0.1, 0.1, 0.1, 1 )
   sys.graphics.rectangle( "fill", 0, 0, screenX, screenY )
   
-  sys.graphics.setColor( 100, 50, 0, 255 )
+  sys.graphics.setColor( 0.4, 0.2, 0, 1 )
   sys.graphics.rectangle( "fill", 0, 0, screenX, fontheight + 4 )
   
-  sys.graphics.setColor( 0, 100, 50, 255 )
+  sys.graphics.setColor( 0, 0.4, 0.2, 1 )
   sys.graphics.rectangle( "fill", 0, fontheight + 4, screenX, fontheight + 4  )
   
   Keystroke.cursor.x = 8 + sys.getwidth( Keystroke.input )
@@ -694,8 +741,8 @@ function sys.draw()
   sys.graphics.setColor( Keystroke.cursor.r, Keystroke.cursor.g, Keystroke.cursor.b, 255 )
   sys.graphics.rectangle("fill", Keystroke.cursor.x, Keystroke.cursor.y, Keystroke.cursor.width, Keystroke.cursor.height )
   
-  sys.graphics.setColor( 255, 255, 255, 255 )
-  sys.graphics.setBackgroundColor( 100, 50, 0, 255 )
+  sys.graphics.setColor( 1, 1, 1, 1 )
+  sys.graphics.setBackgroundColor( 0.4, 0.2, 0, 1 )
   
   if searchmode then
     sys.graphics.print( "Search for Node: " .. searchstr, 2, 2 )
@@ -705,23 +752,23 @@ function sys.draw()
     sys.graphics.print( "File to Save: " .. filename, 2, 2 )
   elseif shift then
     sys.graphics.print( "Use Arrow/Home/End to navigate for editing. Insert/Delete to cut&paste, `\\' to edit.", 2, 2) 
-    sys.graphics.setBackgroundColor( 0, 100, 50, 255 )
-    sys.graphics.print( "F1 Alt-Load/F2 Alt-Save/F3/F4 Restrictive Mode/F5 Reverse Sort/F6 Delete Root/../F9 List View/F10", 2, 6 + fontheight ) 
+    sys.graphics.setBackgroundColor( 0, 0.4, 0.2, 1 )
+    sys.graphics.print( "F1 Alt-Load/F2 Alt-Save/F3/F4 Reverse Sort/F5 Restrictive Mode/F6 Delete Root/F7 Capture/F8 Gen Select/F9 List View/F10", 2, 6 + fontheight ) 
   elseif message then
     sys.graphics.print( message, 2, 2 )
   else
     sys.graphics.print( "Enter SOMETHING then `enter' to descend, `tab' to remain at that level. `{' your_meaning `}' to add meaning. Shift=more help", 2, 2)
-    sys.graphics.setBackgroundColor( 0, 100, 50, 255 )
-    sys.graphics.print( "F1 Load/F2 Save/F3 Search/F4 Reference Swap/F5 Sort/F6 Insert Root/../F8 Gen Midi/F9 Help/F10 Exit", 2, 6 + fontheight ) 
+    sys.graphics.setBackgroundColor( 0, 0.4, 0.2, 1 )
+    sys.graphics.print( "F1 Load/F2 Save/F3 Search/F4 Sort/F5 Reference Swap/F6 Insert Root/F7 Metro/F8 Gen Midi/F9 Help/F10 Exit", 2, 6 + fontheight ) 
   end
 
-  sys.graphics.setBackgroundColor(0, 0, 0, 255 )
+  sys.graphics.setBackgroundColor(0, 0, 0, 1 )
 
   if #Keystroke.input > 0 then
     if Keystroke.state == "valid" or Keystroke.state == "term" then
-      sys.graphics.setColor( 0, 255, 0, 255 )
+      sys.graphics.setColor( 0, 1, 0, 1 )
       sys.graphics.print( Keystroke.input, 8, 14 + 3*fontheight )
-      sys.graphics.setColor( 255, 255, 255, 255 )
+      sys.graphics.setColor( 1, 1, 1, 1 )
     elseif Keystroke.state == "hyper" then
       sys.graphics.print( Keystroke.hyper[Keystroke.hindex], 8, 14 + 3*fontheight )
     else
@@ -770,14 +817,13 @@ if love then
   love.mousemoved = sys.mousemoved
   love.keypressed = sys.keypressed
   love.keyreleased = sys.keyreleased
-end
-if allegro then
-  allegro.load = sys.load
-  allegro.update = sys.update
-  allegro.draw = sys.draw
-  allegro.mousepressed = sys.mousepressed
-  allegro.mousereleased = sys.mousereleased
-  allegro.mousemoved = sys.mousemoved
-  allegro.keypressed = sys.keypressed
-  allegro.keyreleased = sys.keyreleased
+elseif sdl then
+  sdl.load = sys.load
+  sdl.update = sys.update
+  sdl.draw = sys.draw
+  sdl.mousepressed = sys.mousepressed
+  sdl.mousereleased = sys.mousereleased
+  sdl.mousemoved = sys.mousemoved
+  sdl.keypressed = sys.keypressed
+  sdl.keyreleased = sys.keyreleased  
 end

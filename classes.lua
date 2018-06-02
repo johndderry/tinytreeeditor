@@ -245,15 +245,15 @@ function SynTree:display( node, treemode, graphics, getwidth )
       if node.selected then
         --local r, g, b, a = love.graphics.getColor()
         graphics.rectangle("fill", node.x, node.y, node.xlen, fontheight )
-        graphics.setColor( 0, 0, 0, 255 ) 
-        graphics.setBackgroundColor(255, 255 ,255 ,255)
+        graphics.setColor( 0, 0, 0, 1 ) 
+        graphics.setBackgroundColor(1, 1 ,1 ,1)
         if treemode then
           graphics.print( '('.. node.name ..')', node.x, node.y )
         else
           graphics.print( node.name, node.x, node.y )
         end
-        graphics.setColor( 255, 255, 255, 255 )
-        graphics.setBackgroundColor( 0, 0, 0, 255 )         
+        graphics.setColor( 1, 1, 1, 1 )
+        graphics.setBackgroundColor( 0, 0, 0, 1 )         
         if not treemode and node.meaning then
           graphics.print(' {' .. node.meaning .. '}', node.x + node.xlen, node.y )
         end
@@ -261,9 +261,9 @@ function SynTree:display( node, treemode, graphics, getwidth )
         graphics.print( '('.. node.name ..')', node.x, node.y )
       elseif node.meaning then
         graphics.print( node.name, node.x, node.y )
-        graphics.setColor( 255, 100, 100, 255 ) 
+        graphics.setColor( 1, 0.4, 0.4, 1 ) 
         graphics.print( '{' .. node.meaning .. '}', node.x + node.xlen+ 4, node.y )
-        graphics.setColor( 255, 255, 255, 255 ) 
+        graphics.setColor( 1, 1, 1, 1 ) 
       else
         graphics.print( node.name, node.x, node.y )
       end

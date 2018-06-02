@@ -17,12 +17,12 @@ Keystroke.input = ""
 Keystroke.init = function ()
   
   Keystroke.maincursor = Cursor:new( { 
-      colorOn={r=200,g=200,b=128}, colorOff={r=128,g=128,b=200},
+      colorOn={r=0.8,g=0.8,b=0.5}, colorOff={r=0.5,g=0.5,b=0.8},
       height=fontheight, width=fontsize} )
   Keystroke.maincursor.y = 14 + 3*fontheight
   Keystroke.maincursor:off()
   Keystroke.altcursor = Cursor:new( { 
-      colorOn={r=200,g=0,b=200}, colorOff={r=0,g=200,b=200},
+      colorOn={r=0.8,g=0,b=0.8}, colorOff={r=0,g=0.8,b=0.8},
       height=fontheight, width=fontsize} )
   Keystroke.altcursor.y = 14 + 3*fontheight
   Keystroke.altcursor:off()

@@ -519,7 +519,7 @@ local function set_first()
   collfirst = true
   collector = {}
   collcount = 0
-  io.write("converter.first() capture="..tostring(capturemode).."\n")
+  --io.write("converter.first() capture="..tostring(capturemode).."\n")
 end
 
 local function reset(time)
