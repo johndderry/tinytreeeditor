@@ -15,7 +15,8 @@ function SynNode:new(parent)
   local self = {
     next = nil, prev = nil, child = nil,
     name = "Node",
-    selected = false
+    selected = false,
+    open = true
   }
   self.parent = parent
   return setmetatable( self, {__index = SynNode} )
@@ -175,13 +176,14 @@ function SynTree:outerChild( node )
   return node
 end
 
-  
 function SynTree:setListPosition( x, y, node, depth, getwidth )
   
   while node do
     node.x, node.y = x + 12*depth + self.xoffs, y + self.yoffs
     y = y + 1.2*fontheight
-    if node.child then y = self:setListPosition( x, y, node.child, depth+1, getwidth) end
+    if node.child and node.open then 
+      y = self:setListPosition( x, y, node.child, depth+1, getwidth)
+    end
     node.xlen = getwidth( node.name )
     node = node.next
   end
@@ -198,7 +200,7 @@ function SynTree:setTreePosition( x, y, node, getwidth )
     returning = false
     --newx = x
     namelen = getwidth( '(' .. node.name .. ')' )
-    if node.child then 
+    if node.child and node.open then 
       newx = self:setTreePosition( x, y + 1.5*fontheight, node.child, getwidth )
       returning = true
     end
@@ -231,7 +233,7 @@ function SynTree:display( node, treemode, graphics, getwidth )
       graphics.line(lastnode.x + getwidth('('..lastnode.name..')'), node.y+fontheight/2, node.x, node.y+fontheight/2 )
     end
     
-    if node.child then
+    if node.child and node.open then
       self:display( node.child, treemode, graphics, getwidth )
       if treemode and node.name:sub(1,1) ~= '#' and
           node.x >= 0 and node.x < screenX and 
@@ -258,13 +260,28 @@ function SynTree:display( node, treemode, graphics, getwidth )
           graphics.print(' {' .. node.meaning .. '}', node.x + node.xlen, node.y )
         end
       elseif treemode then
+        if not node.open then
+          graphics.setColor( 0.8, 0, 0, 1 )         
+          graphics.rectangle("fill", node.x, node.y, node.xlen, fontheight )
+          graphics.setColor( 1, 1, 1, 1 )
+        end
         graphics.print( '('.. node.name ..')', node.x, node.y )
       elseif node.meaning then
+        if not node.open then
+          graphics.setColor( 0.8, 0, 0, 1 )         
+          graphics.rectangle("fill", node.x, node.y, node.xlen, fontheight )
+          graphics.setColor( 1, 1, 1, 1 )
+        end
         graphics.print( node.name, node.x, node.y )
         graphics.setColor( 1, 0.4, 0.4, 1 ) 
         graphics.print( '{' .. node.meaning .. '}', node.x + node.xlen+ 4, node.y )
         graphics.setColor( 1, 1, 1, 1 ) 
-      else
+      else        
+        if not node.open then
+          graphics.setColor( 0.8, 0, 0, 1 )         
+          graphics.rectangle("fill", node.x, node.y, node.xlen, fontheight )
+          graphics.setColor( 1, 1, 1, 1 )
+        end
         graphics.print( node.name, node.x, node.y )
       end
     end

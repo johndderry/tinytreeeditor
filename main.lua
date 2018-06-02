@@ -120,12 +120,19 @@ end
   
 function sys.mousereleased( x, y, button )
   
+  local node
+  if button == 2 then
+    node = Syntax.tree:locate( Syntax.tree.root, x, y )
+    if node then node.open = not node.open end
+    return
+  end
+  
   if button ~= 1 then return end
   
   mousehold, mouseTreehold = false, false
   
   local k, v
-  local node = Syntax.tree:locate( Syntax.tree.root, x, y )
+  node = Syntax.tree:locate( Syntax.tree.root, x, y )
   if node then
     if shift then
       Syntax.tree.current = node
@@ -301,7 +308,6 @@ function sys.keyreleased( key )
       end
       return
     end
-    if allegro then key = Punctuation[key] or key end
     if shift then 
       local k = MyShift[key]
       if k then key = k
@@ -345,7 +351,6 @@ function sys.keyreleased( key )
       end
       return
     end
-    if allegro then key = Punctuation[key] or key end
     if shift then 
       local k = MyShift[key]
       if k then key = k
@@ -384,7 +389,6 @@ function sys.keyreleased( key )
       return
     end
     if key == sys.space then key = ' ' end
-    if allegro then key = Punctuation[key] or key end    
     if shift then 
       local k = MyShift[key]
       if k then key = k
@@ -487,11 +491,6 @@ function sys.keyreleased( key )
   -- at this point filter out some key events we don't want to record
   --
   if key == sys.insert or key == sys.delete then return end
-  --
-  -- fix up allegro punctuation keys
-  --
-  if allegro then key = Punctuation[key] or key end
-    
   --
   -- deal with editmode and defmode ( define meaning )
   --
@@ -701,7 +700,7 @@ function sys.update()
   for k, v in ipairs( trees ) do
     if v.current and v.page == pagenum then       
       if showlist then
-        v:setListPosition( 8 + scrollX, treeYbegin + scrollY, v.root, 1 )
+        v:setListPosition( 8 + scrollX, treeYbegin + scrollY, v.root, 1, sys.getwidth )
       else
         v:setTreePosition( 8 + scrollX, treeYbegin + scrollY, v.root, sys.getwidth )
       end
