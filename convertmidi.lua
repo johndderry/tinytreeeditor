@@ -36,7 +36,7 @@ local Block = {
   }
   
 local BuiltIn = {
-  KEY = 0, MODE = 1, CHANNEL = 2, PROGRAM = 3, VELOCITY = 4
+  KEY = 0, MODE = 1, CHANNEL = 2, PROGRAM = 3, VELOCITY = 4, TEMPO = 5
 }
 
 local Modes = {}
@@ -66,21 +66,20 @@ local Velocity = 127
 local Time = 0
 local Mode = Modes.ionian
 
-local MidiLib, sortednotes
-
 local outputProgCng = function( program )
   io.write( "outputProgChange program=" .. program .. '\n' ) 
   
-  MidiLib.SortedNotesAddToList( sortednotes, 2, Channel, program, 0, Time )
+  alsa.sendprogram( Channel, program, Time )
+  
 end  
 
 local outputNote = function( name, note )
   if #note > 2 then
-    io.write( "outputNote (" .. name .. ") pitch=" .. note[1]..'/'..note[2] .. " num=" .. note[3] .. " den=" .. note[4] .. '\n' ) 
+    io.write( "outputNote (" .. name .. ") pitch=" .. note[1]..'/'..note[2] .. " num=" .. note[3] .. " den=" .. note[4] ) 
   elseif #note > 1 then
-    io.write( "outputNote (" .. name .. ") pitch=" .. note[1]..'/'..note[2] .. " num=" .. note[3] .. '\n' ) 
+    io.write( "outputNote (" .. name .. ") pitch=" .. note[1]..'/'..note[2] .. " num=" .. note[3] ) 
   else
-    io.write( "outputNote (" .. name .. ") pitch=" .. note[1]..'/'..note[2] .. '\n' ) 
+    io.write( "outputNote (" .. name .. ") pitch=" .. note[1]..'/'..note[2] ) 
   end
   
   local nt, octave 
@@ -101,11 +100,13 @@ local outputNote = function( name, note )
   if num < 0 then num = Numerator end
   if den < 0 then den = Denominator end
   
-  MidiLib.SortedNotesAddToList( sortednotes, 1, Channel, midinote + octave*12 + Keyoffset, Velocity, Time )
+  io.write(" on tick="..Time )
+  alsa.sendnoteon( Channel, midinote + octave*12 + Keyoffset, Velocity, Time )
 
   Time = Time + ( num / den ) * 96
   
-  MidiLib.SortedNotesAddToList( sortednotes, 0, Channel, midinote + octave*12 + Keyoffset, Velocity, Time )
+  io.write(" off tick="..Time..'\n' )
+  alsa.sendnoteoff( Channel, midinote + octave*12 + Keyoffset, Velocity, Time )
   
 end
 
@@ -114,8 +115,10 @@ local noteDetail = function( node )
   local val = { node.name, Notes[node.name], -1, -1 }
   if node.child then
     val[3] = Digits[node.child.name]
+    val[3] = val[3] or 0
     if node.child.child then
       val[4] = Digits[node.child.child.name]
+      val[4] = val[4] or 0
     end
   end
   
@@ -233,6 +236,7 @@ local evalAsBuiltIn = function( node, btype )
   elseif btype == "CHANNEL" then Channel = tonumber(node.name) -1
   elseif btype == "PROGRAM" then outputProgCng( tonumber(node.name) -1 )
   elseif btype == "VELOCITY" then Velocity = tonumber(node.name) 
+  elseif btype == "TEMPO" then alsa.tempo( tonumber(node.name) ) 
   end
 
 end
@@ -409,31 +413,135 @@ local function evalAsList( node, rtype )
   return 0  
 end    
 
-local function reset()
+local collector = {}
+local collcount, collfirst = 0, true
+local lasttime
+
+local function noteon( chan, pitch, veloc, time )
+  --io.write("converter.noteon() collfirst="..tostring(collfirst).." collcount="..tostring(collcount).."\n")
+  collector[pitch] = time
+  collcount = collcount + 1
+end
+
+local function adjusttime( time )
+  local r
+  if time % 96 then
+    r = time % ( 96 / Denominator )
+    if r > 96 / ( Denominator * 2 ) then
+      time = time + ( 96 / Denominator ) - r
+    else 
+      time = time - r
+    end
+  end
+  return time
+end
+  
+local function create_note( starttime, endtime, pitch, veloc )
+  -- adjust times to grid based on current Denominator
+  starttime = adjusttime( starttime )
+  endtime = adjusttime( endtime )
+  if starttime == endtime then return end
+  
+  --find the note this pitch represents
+  pitch = pitch - Keyoffset
+  local octave = math.floor(pitch / 12)
+  local noteoffs = pitch % 12
+  local note, n = nil 
+  for n = 1, 7 do
+    if noteoffs == Mode[n] then
+      if octave > 0 then
+        note = RevNotes[octave]
+      else
+        note = ""
+      end
+      note = note .. RevNotes[n]
+      break
+    end
+  end
+  
+  if note == nil then return end
+  
+  Syntax.tree.current = Syntax.nextState( note, Syntax.tree.current )
+  Syntax.tree.current = Syntax.nextState( '\n', Syntax.tree.current )
+
+  local numerator = (endtime - starttime) / ( 96 / Denominator )  
+  Syntax.tree.current = Syntax.nextState( tostring( numerator), Syntax.tree.current )
+  
+  Syntax.tree.current = Syntax.nextState( '\t', Syntax.tree.current )
+  Syntax.tree.current = Syntax.nextState( '\t', Syntax.tree.current )
+    
+end
+
+local function create_rest( starttime, endtime )
+  -- adjust times to grid based on current Denominator
+  starttime = adjusttime( starttime )
+  endtime = adjusttime( endtime )
+  if starttime == endtime then return end
+    
+  Syntax.tree.current = Syntax.nextState( '*', Syntax.tree.current )
+  Syntax.tree.current = Syntax.nextState( '\n', Syntax.tree.current )
+
+  local numerator = (endtime - starttime) / ( 96 / Denominator )  
+  Syntax.tree.current = Syntax.nextState( tostring( numerator), Syntax.tree.current )
+  
+  Syntax.tree.current = Syntax.nextState( '\t', Syntax.tree.current )
+  Syntax.tree.current = Syntax.nextState( '\t', Syntax.tree.current )
+    
+end
+
+local function noteoff( chan, pitch, veloc, time )
+  local starttime
+  --io.write("converter.noteoff() collfirst="..tostring(collfirst).." collcount="..tostring(collcount).."\n")
+  --if collfirst and collcount == 1 then
+  if collfirst then
+    collfirst = false
+    starttime = collector[pitch] - collector[pitch] % 96
+    if collector[pitch] > starttime then
+      create_rest( starttime, collector[pitch] )
+    end
+    create_note( collector[pitch], time, pitch, veloc )
+    collector[pitch] = nil
+    collcount = collcount - 1
+    lasttime = time
+    return
+  end
+  starttime = lasttime
+  if collector[pitch] > starttime then
+    create_rest( starttime, collector[pitch] )
+  end
+  create_note( collector[pitch], time, pitch, veloc )
+  collector[pitch] = nil
+  collcount = collcount - 1
+  lasttime = time  
+end
+
+local function set_first()
+  collfirst = true
+  collector = {}
+  collcount = 0
+  io.write("converter.first() capture="..tostring(capturemode).."\n")
+end
+
+local function reset(time)
+  collector = {}
   Numerator = 4
   Denominator = 4
   Keyoffset = 0
   Channel = 0
   Velocity = 127
-  Time = 0
+  Time = time
   Mode = Modes.ionian
 end
 
-local setmidilib = function( lib )
-  MidiLib = lib
-end
+local convertmidi = {}
 
-local setsortednotes = function( sn )
-  sortednotes = sn
-end
+convertmidi.reset = reset
+convertmidi.evalAsRepeat = evalAsRepeat
+convertmidi.evalAsParallel = evalAsParallel
+convertmidi.evalAsList = evalAsList
 
-local tomidi = {}
+convertmidi.noteon = noteon
+convertmidi.noteoff = noteoff
+convertmidi.first = set_first
 
-tomidi.reset = reset
-tomidi.setmidilib = setmidilib
-tomidi.setsortednotes = setsortednotes
-tomidi.evalAsRepeat = evalAsRepeat
-tomidi.evalAsParallel = evalAsParallel
-tomidi.evalAsList = evalAsList
-
-return tomidi
+return convertmidi
