@@ -69,6 +69,8 @@ function sys.noteoff( channel, pitch, velocity, time )
   
   if capturemode then
     converter.noteoff( channel, pitch, velocity, time)
+  else
+    Keystroke.input = converter.pitch2note( pitch ) or Keystroke.input
   end
   alsa.sendnoteoff( channel, pitch, velocity, time )
   alsa.drain()
@@ -136,10 +138,15 @@ function sys.mousereleased( x, y, button )
   if node then
     if shift then
       Syntax.tree.current = node
-    else      
-      Syntax.tree.select.selected = false
-      Syntax.tree.select = node
-      node.selected = true
+    else
+      if node.selected then
+        editmode = true
+        Keystroke.input = node.name 
+      else      
+        Syntax.tree.select.selected = false
+        Syntax.tree.select = node
+        node.selected = true
+      end
     end
   else
     for k, v in ipairs( trees ) do
@@ -198,7 +205,7 @@ function sys.keyreleased( key )
       return
     end
     if ((key == sys.down and not showlist) or (key == sys.right and showlist)) 
-          and p and p.child then
+          and p and p.child and p.open then
       p.selected = false
       p = p.child
       p.selected = true
@@ -707,7 +714,7 @@ function sys.update()
     end
   end
       
-  if autoscroll and Syntax.tree.current then
+  if autoscroll and Syntax.tree.current and Syntax.tree.current.x then
     if Syntax.tree.current.x < 0 then scrollX = scrollX + screenX*0.1
     elseif Syntax.tree.current.x > screenX*0.8 then scrollX = scrollX - screenX*0.2
     end
@@ -792,6 +799,8 @@ function sys.draw()
       v:display( v.root, not showlist, sys.graphics, sys.getwidth )
     end
   end
+  
+  if Syntax.tree.current and Syntax.tree.current.xlen == nil then return end
   
   if Syntax.tree.current and Syntax.tree.page == pagenum then
     

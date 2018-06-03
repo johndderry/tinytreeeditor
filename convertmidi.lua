@@ -515,6 +515,26 @@ local function noteoff( chan, pitch, veloc, time )
   lasttime = time  
 end
 
+local function pitch2note( pitch )
+  
+  pitch = pitch - Keyoffset
+  local octave = math.floor(pitch / 12)
+  local noteoffs = pitch % 12
+  local note, n = nil 
+  for n = 1, 7 do
+    if noteoffs == Mode[n] then
+      if octave > 0 then
+        note = RevNotes[octave]
+      else
+        note = ""
+      end
+      note = note .. RevNotes[n]
+      break
+    end
+  end
+  return note
+end
+
 local function set_first()
   collfirst = true
   collector = {}
@@ -543,5 +563,6 @@ convertmidi.evalAsList = evalAsList
 convertmidi.noteon = noteon
 convertmidi.noteoff = noteoff
 convertmidi.first = set_first
+convertmidi.pitch2note = pitch2note
 
 return convertmidi

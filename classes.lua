@@ -298,7 +298,7 @@ function SynTree:locate( node, x, y )
   local fnode = nil
   while node do
   
-    if node.child then
+    if node.child and node.open then
       fnode = self:locate( node.child, x, y )
       if fnode then return fnode end
     end
@@ -319,7 +319,7 @@ function SynTree:search( node, str )
   local fnode = nil
   while node do
   
-    if node.child then
+    if node.child and node.open then
       fnode = self:search( node.child, str )
       if fnode then return fnode end
     end
