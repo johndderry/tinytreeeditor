@@ -133,7 +133,6 @@ function sys.mousereleased( x, y, button )
   
   mousehold, mouseTreehold = false, false
   
-  local k, v
   node = Syntax.tree:locate( Syntax.tree.root, x, y )
   if node then
     if shift then
@@ -273,8 +272,16 @@ function sys.keyreleased( key )
     newselect.selected = true
     return
   end
-  if key == sys.insert and Syntax.tree.cutbuffer then
-    Syntax.tree:paste( Syntax.tree.select )
+  if key == sys.insert then
+    if shift then
+      if Syntax.tree.select.prev then
+        Syntax.tree:attach( Syntax.tree.select.parent, Syntax.tree.select.prev, "" )
+      else
+        Syntax.tree:attachChild( Syntax.tree.select.parent, "" )
+      end
+    elseif Syntax.tree.cutbuffer then
+      Syntax.tree:paste( Syntax.tree.select )
+    end
     return
   end
   
@@ -563,7 +570,7 @@ function sys.keyreleased( key )
   
   if shift then
     if key == sys._return or key == sys.tab then
-      local dest, x, y, k, v
+      local dest, x, y
       x = Syntax.tree.root.x - Syntax.tree.xoffs
       y = Syntax.tree.root.y - Syntax.tree.yoffs
       for k, v in ipairs( trees ) do
@@ -571,8 +578,7 @@ function sys.keyreleased( key )
           dest = v:locate( v.root, x, y )
           if dest then
             if key == sys._return then v:merge( dest, "child", Syntax.tree ) end
-            if key == sys.tab then v:merge( dest, "sibling", Syntax.tree ) end
-            
+            if key == sys.tab then v:merge( dest, "sibling", Syntax.tree ) end            
           end 
         end
       end
@@ -646,7 +652,7 @@ function sys.load( arg )
  
   if arg then
     if arg[#arg] == "-debug" then require("mobdebug").start() end
-    local argn = 2
+    local argn = 1
     while argn <= #arg do
       local a = arg[argn]
       if a == "-fontsize" then
@@ -793,7 +799,6 @@ function sys.draw()
     return
   end
   
-  local k, v
   for k, v in ipairs( trees ) do
     if v.current and v.page == pagenum then 
       v:display( v.root, not showlist, sys.graphics, sys.getwidth )

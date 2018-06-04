@@ -48,7 +48,9 @@ Modes.lydian = {0,2,4,6,7,9,11}
 Modes.mixolydian = {0,2,4,5,7,9,10}
 Modes.aeolian = {0,2,3,5,7,8,10}
 Modes.locrian = {0,1,3,5,6,8,10}
-Modes.index = { Modes.ionian, Modes.dorian, Modes.phrygian, Modes.lydian, Modes.mixolydian, Modes.aeolian, Modes.locrian } 
+Modes.harmonic = {0,2,3,5,7,8,11}
+Modes.index = { Modes.ionian, Modes.dorian, Modes.phrygian, Modes.lydian, Modes.mixolydian, Modes.aeolian, 
+  Modes.locrian, Modes.harmonic } 
 
 local TwelveNoteScale = {
   'C','C#','D','D#','E','F','F#','G','G#','A','A#','B','C','C#','D','D#','E','F','F#','G','G#','A','A#','B'

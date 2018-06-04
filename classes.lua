@@ -83,6 +83,7 @@ function SynTree:attachChild( parent, name )
   local node = SynNode:new( parent )
   node.name = name
   node.next = parent.child
+  if( parent.child ) then parent.child.prev = node end
   parent.child = node 
   
   return node

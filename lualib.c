@@ -204,8 +204,8 @@ static int alsa_update(lua_State *L) {
 					unsigned tick = seqevent->time.tick;
 					snd_seq_tick_time_t r = tick % TICKS_PER_QUARTER;
 					//fprintf(stderr,"r=%d\n", r);
-					midi_event( NOTE_ON, 0, tick + TICKS_PER_QUARTER - r, 9, 40, 127 );
-					midi_event( NOTE_OFF, 1, tick + TICKS_PER_QUARTER - r + 1, 9, 40, 127 );
+					midi_event( NOTE_ON, 0, tick + TICKS_PER_QUARTER - r, 9, 41, 90 );
+					midi_event( NOTE_OFF, 1, tick + TICKS_PER_QUARTER - r + 1, 9, 41, 90 );
 					snd_seq_drain_output( seq_handle );
 					break;
 				}
@@ -230,8 +230,8 @@ static int alsa_metronome(lua_State *L) {
 	if( metronome ) {
 		tick = get_tick(&ev);
 		r = tick % TICKS_PER_QUARTER;
-		midi_event( NOTE_ON, 0, tick + TICKS_PER_QUARTER - r, 9, 40, 127 );
-		midi_event( NOTE_OFF, 1, tick + TICKS_PER_QUARTER - r + 1, 9, 40, 127 );
+		midi_event( NOTE_ON, 0, tick + TICKS_PER_QUARTER - r, 9, 41, 90 );
+		midi_event( NOTE_OFF, 1, tick + TICKS_PER_QUARTER - r + 1, 9, 41, 90 );
 		snd_seq_drain_output( seq_handle );
 	}
 	return 0;
