@@ -144,7 +144,11 @@ end
   
 function SynTree:cut( node )
   if inTree( node, self.current ) then
-    self.current = node.parent
+    if node.prev then
+      self.current = node.prev
+    else
+      self.current = node.parent
+    end
   end
   self.cutbuffer = node
   if node.prev then

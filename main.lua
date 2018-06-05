@@ -302,8 +302,7 @@ function sys.keyreleased( key )
   end
   
   if key == sys.delete and Syntax.tree.select then
-    local newselect = Syntax.tree.select.prev
-    if newselect == nil then newselect = Syntax.tree.select.parent end
+    local newselect = Syntax.tree.select.prev or Syntax.tree.select.parent
     if newselect == nil then return end
     
     if Syntax.tree.select == Syntax.tree.current then

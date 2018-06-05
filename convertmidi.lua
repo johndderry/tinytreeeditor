@@ -36,7 +36,7 @@ local Block = {
   }
   
 local BuiltIn = {
-  KEY = 0, MODE = 1, CHANNEL = 2, PROGRAM = 3, VELOCITY = 4, TEMPO = 5
+  KEY = 0, MODE = 1, CHAN = 2, PROG = 3, VELO = 4, TEMPO = 5
 }
 
 local Modes = {}
@@ -235,9 +235,9 @@ local evalAsBuiltIn = function( node, btype )
   
   if btype == "KEY" then Keyoffset = KeyDescriptor[node.name]
   elseif btype == "MODE" then Mode = Modes.index[tonumber(node.name)]
-  elseif btype == "CHANNEL" then Channel = tonumber(node.name) -1
-  elseif btype == "PROGRAM" then outputProgCng( tonumber(node.name) -1 )
-  elseif btype == "VELOCITY" then Velocity = tonumber(node.name) 
+  elseif btype == "CHAN" then Channel = tonumber(node.name) -1
+  elseif btype == "PROG" then outputProgCng( tonumber(node.name) -1 )
+  elseif btype == "VELO" then Velocity = tonumber(node.name) 
   elseif btype == "TEMPO" then alsa.tempo( tonumber(node.name) ) 
   end
 
