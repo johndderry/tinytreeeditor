@@ -10,16 +10,16 @@ int queue, metronome;
 int init_midi() {
 	snd_seq_open(&seq_handle, "default", SND_SEQ_OPEN_INPUT | SND_SEQ_OPEN_OUTPUT, 0);
 
-    snd_seq_set_client_name(seq_handle, "tommy");
-    in_port = snd_seq_create_simple_port(seq_handle, "tommy:in",
+    snd_seq_set_client_name(seq_handle, "tte");
+    in_port = snd_seq_create_simple_port(seq_handle, "in",
                       SND_SEQ_PORT_CAP_WRITE|SND_SEQ_PORT_CAP_SUBS_WRITE,
                       SND_SEQ_PORT_TYPE_APPLICATION);
 	
-    out_port = snd_seq_create_simple_port(seq_handle, "tommy:out",
+    out_port = snd_seq_create_simple_port(seq_handle, "out",
                       SND_SEQ_PORT_CAP_READ|SND_SEQ_PORT_CAP_SUBS_READ,
                       SND_SEQ_PORT_TYPE_APPLICATION);	
 
-    aux_port = snd_seq_create_simple_port(seq_handle, "tommy:aux",
+    aux_port = snd_seq_create_simple_port(seq_handle, "aux",
                       SND_SEQ_PORT_CAP_WRITE, SND_SEQ_PORT_TYPE_APPLICATION);	
 
 	if( in_port < 0 || out_port < 0 || aux_port < 0 ) {
@@ -47,6 +47,7 @@ void midi_event( int type, int echo, unsigned timestamp, int chan, int note, int
 	switch( type ) {
 		case NOTE_ON: snd_seq_ev_set_noteon( &event, chan, note, veloc); break;
 		case NOTE_OFF: snd_seq_ev_set_noteoff( &event, chan, note, veloc); break;
+		case PROG_CHANGE: snd_seq_ev_set_pgmchange( &event, chan, note); break;
 		default: fprintf(stderr, "midi event %d not handled\n", type); return;
 	}
 	if( queue < 0 )

@@ -89,6 +89,48 @@ function SynTree:attachChild( parent, name )
   return node
 end
 
+function SynTree:merge( dest, pos, mtree )
+  local node
+  if pos == "child" then
+    node = dest.child
+    if node then
+      while node.next do node = node.next end
+      node.next = mtree.root 
+      node.next.prev = node
+      node = node.next
+      while node do
+        node.parent = dest
+        node = node.next
+      end
+    else
+      dest.child = mtree.root 
+      node = dest.child
+      while node do
+        node.parent = dest
+        node = node.next
+      end
+    end
+    mtree.root = nil
+    return
+  end
+  
+  if pos == "sibling" then
+    node = mtree.root
+    node.prev = dest
+    while node.next do
+      node.parent = dest.parent
+      node = node.next
+    end
+    node.parent = dest.parent
+    node.next = dest.next
+    if node.next then node.next.prev = node end
+    dest.next = mtree.root
+    mtree.root = nil
+    return
+  end
+  
+end
+
 function inTree( node, test )
   if node.child then 
     if inTree( node.child, test ) then return true end
@@ -453,8 +495,8 @@ end
 function SynTree:split( node )
   
   local t = SynTree:new()
-  t.xoffs = node.x - self.xoffs
-  t.yoffs = node.y - self.yoffs
+  t.xoffs = node.x - self.root.x + self.xoffs
+  t.yoffs = node.y - self.root.y + self.yoffs
   t.root = node
   if( node.parent and node.parent.child == node ) then
     node.parent.child = nil;

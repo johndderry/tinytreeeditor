@@ -17,9 +17,10 @@ scrollX, scrollY, pagenum = 0, 0, 0
 definition, filename, searchstr, message = "", "", "", nil
 shift, defmode, editmode, autoscroll = false, false, false, true
 floadmode, fsavemode, falt, searchmode = false, false, false, false
-mousehold, mouseTreehold = false, false 
+mouseScrHold, mouseTreehold, mouseMoved = false, false, false 
 showkeyparse, showlist = false, false
 capturemode, metro = false, false
+shiftkey = nil
 
 if love then
   sys = require "lovedef"
@@ -83,25 +84,39 @@ end
 
 function sys.mousepressed( x, y, button )
   
-  if button ~= 1 then return end
+  mouseMoved = false
   
-  if Syntax.tree:locate( Syntax.tree.root, x, y ) then 
-    mouseTreehold = true
-    holdtree = Syntax.tree
+  if button == 1 then 
+    mouseScrHold = true
     return
   end
   
-  mousehold = true
-  return
+  if button == 2 then
+    if Syntax.tree:locate( Syntax.tree.root, x, y ) then 
+      mouseTreehold = true
+      holdtree = Syntax.tree
+      return
+    else
+      for k, v in ipairs( trees ) do
+        if v:locate( v.root, x, y ) then
+          mouseTreehold = true
+          holdtree = v
+          return          
+        end  
+      end
+    end
+  end
+  
 end
 
 function sys.mousemoved( x, y, dx, dy )
   
   local breaknode, newtree
-  if mousehold then 
+  if mouseScrHold then 
     scrollX = scrollX + dx
     scrollY = scrollY + dy  
   elseif mouseTreehold then
+    
     if shift then
       breaknode = holdtree:locate( holdtree.root, x, y )
       newtree = holdtree:split( breaknode )
@@ -115,7 +130,9 @@ function sys.mousemoved( x, y, dx, dy )
     else
       holdtree.xoffs = holdtree.xoffs + dx
       holdtree.yoffs = holdtree.yoffs + dy
+      mouseMoved = true
     end
+    
   end    
   return
 end
@@ -123,49 +140,75 @@ end
 function sys.mousereleased( x, y, button )
   
   local node
+  
   if button == 2 then
-    node = Syntax.tree:locate( Syntax.tree.root, x, y )
-    if node then node.open = not node.open end
+    if shift then
+      if mouseMoved then        
+        local dest, hx, hy
+        hx = holdtree.root.x 
+        hy = holdtree.root.y 
+        dest = Syntax.tree:locate( Syntax.tree.root, hx, hy )
+        if dest then
+          if shiftkey == sys.leftshift then Syntax.tree:merge( dest, "child", holdtree ) end
+          if shiftkey == sys.rightshift then Syntax.tree:merge( dest, "sibling", holdtree ) end
+          for k, v in ipairs( trees ) do
+            if v == holdtree then 
+              table.remove( trees, k ) 
+              break
+            end
+          end
+        end         
+      else
+        if mouseTreehold then
+          node = holdtree:locate( holdtree.root, x, y )
+          if node then node.open = not node.open end
+        else
+          node = Syntax.tree:locate( Syntax.tree.root, x, y )
+          if node then node.open = not node.open end
+        end
+      end
+    end
+    mouseTreehold = false
     return
   end
   
-  if button ~= 1 then return end
-  
-  mousehold, mouseTreehold = false, false
-  
-  node = Syntax.tree:locate( Syntax.tree.root, x, y )
-  if node then
-    if shift then
-      Syntax.tree.current = node
-    else
-      if node.selected then
-        editmode = true
-        Keystroke.input = node.name 
-      else      
-        Syntax.tree.select.selected = false
-        Syntax.tree.select = node
-        node.selected = true
-      end
-    end
-  else
-    for k, v in ipairs( trees ) do
-      node = v:locate( v.root, x, y )
-      if node then
-        v.cutbuffer = Syntax.tree.cutbuffer
-        Syntax.tree.select.selected = false
-        Syntax.tree = v
-        if shift then
-          Syntax.tree.current = node
+  if button == 1 then
+    mouseScrHold = false    
+    node = Syntax.tree:locate( Syntax.tree.root, x, y )
+    if node then
+      if shift then
+        Syntax.tree.current = node
+      else
+        if node.selected then
+          editmode = true
+          Keystroke.input = node.name 
         else      
           Syntax.tree.select.selected = false
           Syntax.tree.select = node
           node.selected = true
         end
-        break
       end
-    end
+    else
+      for k, v in ipairs( trees ) do
+        node = v:locate( v.root, x, y )
+        if node then
+          v.cutbuffer = Syntax.tree.cutbuffer
+          Syntax.tree.select.selected = false
+          Syntax.tree = v
+          if shift then
+            Syntax.tree.current = node
+          else      
+            Syntax.tree.select.selected = false
+            Syntax.tree.select = node
+            node.selected = true
+          end
+          break
+        end
+      end
+    end    
+    return
   end
-  
+
 end
 
 ---------------------------------------------------------------------
@@ -174,6 +217,7 @@ end
 
 function sys.keypressed( key )
   if key == sys.leftshift or key == sys.rightshift then
+    shiftkey = key
     if alsa then
       converter.first()
       if shift then alsa.clear() end
@@ -455,11 +499,11 @@ function sys.keyreleased( key )
   
   if key == sys.f7 and alsa then
     if shift then 
-      capturemode = not capturemode
-      if capturemode then converter.first() end
-    else 
       metro = not metro
       alsa.metronome( metro )
+    else 
+      capturemode = not capturemode
+      if capturemode then converter.first() end
     end
     return
   end
