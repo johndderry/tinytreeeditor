@@ -28,7 +28,7 @@ local Digits = {
 }
 
 local Operators = {
-  ['+']=0, ['-']=1
+  ['+']=0, ['-']=1, ['!']=2
 }
 
 local Block = {
@@ -66,16 +66,30 @@ local Keyoffset = 0
 local Channel = 0
 local Velocity = 127
 local Time = 0
+local QuietMode = false
 local Mode = Modes.ionian
 
 local outputProgCng = function( program )
-  io.write( "outputProgChange program=" .. program .. '\n' ) 
   
+  if QuietMode then return end
+  
+  io.write( "outputProgChange program=" .. program .. '\n' ) 
   alsa.sendprogram( Channel, program, Time )
   
 end  
 
 local outputNote = function( name, note )
+  local num, den 
+  
+  if QuietMode then
+    num, den = note[3], note[4]
+    if num < 0 then num = Numerator end
+    if den < 0 then den = Denominator end
+  
+    Time = Time + ( num / den ) * 96
+    return
+  end
+  
   if #note > 2 then
     io.write( "outputNote (" .. name .. ") pitch=" .. note[1]..'/'..note[2] .. " num=" .. note[3] .. " den=" .. note[4] ) 
   elseif #note > 1 then
@@ -98,7 +112,7 @@ local outputNote = function( name, note )
 --    octave = octave + 1
 --  end
   
-  local num, den = note[3], note[4]
+  num, den = note[3], note[4]
   if num < 0 then num = Numerator end
   if den < 0 then den = Denominator end
   
@@ -180,6 +194,11 @@ local subOP = function( src, op )
   return { RevNotes[a+1], a, b, c }
 end
 
+local ranOP = function( src, op )
+  local a = math.random(src[2], op[2])
+  return { RevNotes[a+1], a, -1, -1 }
+end
+
 evalAsOperator = function( node, otype )
 
   local first
@@ -188,7 +207,7 @@ evalAsOperator = function( node, otype )
   elseif Notes[node.name] then
     first = noteDetail( node )
   elseif Digits[node.name] then
-    first = { Digits[node.name], -1, -1 }
+    first = { RevNotes[Digits[node.name]], Digits[node.name], -1, -1 }
   else
   -- consider as variable
     first = Variables[node.name]
@@ -208,7 +227,7 @@ evalAsOperator = function( node, otype )
     elseif Notes[node.name] then
       nextone = noteDetail( node )
     elseif Digits[node.name] then
-      nextone = { Digits[node.name], 1, 1 }
+      nextone = { RevNotes[Digits[node.name]], Digits[node.name], -1, -1 }
     else
     -- consider as variable
       nextone = Variables[node.name]
@@ -218,10 +237,13 @@ evalAsOperator = function( node, otype )
         nextone = setVariable( node )        
       end
     end
+    
     if otype == '+' then
       first = addOP( first, nextone )
     elseif otype == '-' then
       first = subOP( first, nextone )
+    elseif otype == '!' then
+      first = ranOP( first, nextone )
     end
     node = node.next
   end
@@ -555,8 +577,18 @@ local function reset(time)
   Mode = Modes.ionian
 end
 
+local function quiet( mode )
+  QuietMode = mode
+end
+
+local function gettime()
+  return Time
+end
+
 local convertmidi = {}
 
+convertmidi.quiet = quiet
+convertmidi.gettime = gettime
 convertmidi.reset = reset
 convertmidi.evalAsRepeat = evalAsRepeat
 convertmidi.evalAsParallel = evalAsParallel

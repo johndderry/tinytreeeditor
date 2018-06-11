@@ -444,7 +444,16 @@ Syntax.dump = function( node )
     tmps = tmps .. '\t'
   end  
   while nxt do
-    tmps = tmps .. Syntax.dump( nxt )
+    tmps = tmps .. nxt.name
+    if nxt.meaning then
+      tmps = tmps .. '{' .. nxt.meaning .. '}'
+    end
+    if nxt.child then
+      tmps = tmps .. '\n' .. Syntax.dump( nxt.child ) .. '\t'
+    else
+      tmps = tmps .. '\t'
+    end  
+    
     nxt = nxt.next
   end
   

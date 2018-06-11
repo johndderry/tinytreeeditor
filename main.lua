@@ -60,6 +60,8 @@ function sys.noteon( channel, pitch, velocity, time )
   
   if capturemode then
     converter.noteon( channel, pitch, velocity, time)
+  else
+    Keystroke.input = converter.pitch2note( pitch ) or Keystroke.input
   end
   alsa.sendnoteon( channel, pitch, velocity, time )
   alsa.drain()
@@ -70,8 +72,6 @@ function sys.noteoff( channel, pitch, velocity, time )
   
   if capturemode then
     converter.noteoff( channel, pitch, velocity, time)
-  else
-    Keystroke.input = converter.pitch2note( pitch ) or Keystroke.input
   end
   alsa.sendnoteoff( channel, pitch, velocity, time )
   alsa.drain()
@@ -342,7 +342,7 @@ function sys.keyreleased( key )
         return
       end
       local ss = file:read("*all"); file:close()
-      Syntax.tree.root = nil
+      --Syntax.tree.root = nil
       if falt then
         local indx = string.find( ss, '{' )
         Syntax.tree.root = Syntax.altload( nil, string.sub( ss, indx ) )
@@ -352,6 +352,7 @@ function sys.keyreleased( key )
         Syntax.tree.current = Syntax.tree:outerChild( Syntax.tree.root )
         Syntax.state = "desc"
       else
+        Syntax.state = "init"
         Syntax.load( ss )
       end
       falt = false

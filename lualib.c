@@ -16,6 +16,9 @@
 /* STUBS
  * These are stubs, to be redefined by user in main.lua
  */
+static int alsa_click(lua_State *L) {
+	
+}
  
 static int alsa_noteon(lua_State *L) {
 	
@@ -207,8 +210,14 @@ static int alsa_update(lua_State *L) {
 					midi_event( NOTE_ON, 0, tick + TICKS_PER_QUARTER - r, 9, 41, 90 );
 					midi_event( NOTE_OFF, 1, tick + TICKS_PER_QUARTER - r + 1, 9, 41, 90 );
 					snd_seq_drain_output( seq_handle );
+
+					lua_getglobal(L, "alsa");
+					lua_getfield(L, -1, "click");
+					lua_pushnumber(L, (double) tick );
+					lua_pcall(L, 1, 0, 0);
+					lua_pop(L, 1);					
 					break;
-				}
+				} // fall thru
 			case SND_SEQ_EVENT_NOTEON:
 				handle_midi_event( L, seqevent->time.tick, seqevent->type, seqevent->data.note );
 				break;
@@ -242,6 +251,7 @@ static const struct luaL_Reg mylib [] = {
 	{"close", alsa_close},
 	{"noteon", alsa_noteon},
 	{"noteoff", alsa_noteoff},
+	{"click", alsa_click},
 	{"program", alsa_program},
 	{"sendnoteon", alsa_sendnoteon},
 	{"sendnoteoff", alsa_sendnoteoff},
