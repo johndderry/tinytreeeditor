@@ -17,7 +17,7 @@
  * These are stubs, to be redefined by user in main.lua
  */
 static int alsa_click(lua_State *L) {
-	
+	return 0;
 }
  
 static int alsa_noteon(lua_State *L) {

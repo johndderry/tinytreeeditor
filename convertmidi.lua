@@ -333,12 +333,12 @@ function evalAsRepeat( node, rtype )
           local num = tonumber( node.child.name )
           if node.child.child then
             local den = tonumber( node.child.child.name )
-            Time = Time + ( (num * 4) / den ) * 96
+            Time = Time + ( num / den ) * 96
           else
-            Time = Time + ( (num * 4) / Denominator ) * 96
+            Time = Time + ( num / Denominator ) * 96
           end
         else
-            Time = Time + ( (Numerator * 4) / Denominator ) * 96
+            Time = Time + ( Numerator / Denominator ) * 96
         end
       elseif Notes[node.name] then
         outputNote( node.name, noteDetail( node ) ) 
@@ -393,12 +393,12 @@ local function evalAsList( node, rtype )
         local num = tonumber( node.child.name )
         if node.child.child then
           local den = tonumber( node.child.child.name )
-          Time = Time + ( (num * 4) / den ) * 96
+          Time = Time + ( num / den ) * 96
         else
-          Time = Time + ( (num * 4) / Denominator ) * 96
+          Time = Time + ( num / Denominator ) * 96
         end
       else
-          Time = Time + ( (Numerator * 4) / Denominator ) * 96
+          Time = Time + ( Numerator / Denominator ) * 96
       end
     elseif Notes[node.name] then
       outputNote( node.name, noteDetail( node ) ) 
