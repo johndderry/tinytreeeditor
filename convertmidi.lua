@@ -32,7 +32,7 @@ local Operators = {
 }
 
 local Block = {
-  ['@'] = 0, ['&'] = 1
+  ['@'] = 0, ['&'] = 1, ['_'] = 2
   }
   
 local BuiltIn = {
@@ -285,6 +285,9 @@ local function evalAsParallel( node, ptype )
     elseif Block[node.name] == 1 then
       evalAsParallel( node.child, node.name )
       
+    elseif Block[node.name] == 2 then
+      evalAsList( node.child, node.name )
+      
     elseif BuiltIn[node.name] then
       evalAsBuiltIn( node.child, node.name )
       
@@ -352,6 +355,9 @@ function evalAsRepeat( node, rtype )
       elseif Block[node.name] == 1 then
         evalAsParallel( node.child, node.name )
       
+      elseif Block[node.name] == 2 then
+        evalAsList( node.child, node.name )
+      
       elseif BuiltIn[node.name] then
         evalAsBuiltIn( node.child, node.name )
         
@@ -379,7 +385,7 @@ function evalAsRepeat( node, rtype )
   return 0  
 end    
 
-local function evalAsList( node, rtype )
+function evalAsList( node, rtype )
   
   local val
   while node do
@@ -412,6 +418,9 @@ local function evalAsList( node, rtype )
     elseif Block[node.name] == 1 then
       evalAsParallel( node.child, node.name )
     
+    elseif Block[node.name] == 2 then
+      evalAsList( node.child, node.name )
+    
     elseif BuiltIn[node.name] then
       evalAsBuiltIn( node.child, node.name )
       
@@ -438,14 +447,9 @@ local function evalAsList( node, rtype )
 end    
 
 local collector = {}
-local collcount, collfirst = 0, true
-local lasttime
-
-local function noteon( chan, pitch, veloc, time )
-  --io.write("converter.noteon() collfirst="..tostring(collfirst).." collcount="..tostring(collcount).."\n")
-  collector[pitch] = time
-  collcount = collcount + 1
-end
+local collcount, collfirst, first, multinote = 0, 0, true, false
+local lasttime, multitime
+local singlenote = true
 
 local function adjusttime( time )
   local r
@@ -460,6 +464,49 @@ local function adjusttime( time )
   return time
 end
   
+local function create_rest( starttime, endtime )
+  -- adjust times to grid based on current Denominator
+  starttime = adjusttime( starttime )
+  endtime = adjusttime( endtime )
+  if starttime == endtime then return end
+    
+  Syntax.tree.current = Syntax.nextState( '*', Syntax.tree.current )
+  Syntax.tree.current = Syntax.nextState( '\n', Syntax.tree.current )
+
+  local numerator = (endtime - starttime) / ( 96 / Denominator )  
+  Syntax.tree.current = Syntax.nextState( tostring( numerator), Syntax.tree.current )
+  
+  Syntax.tree.current = Syntax.nextState( '\t', Syntax.tree.current )
+  Syntax.tree.current = Syntax.nextState( '\t', Syntax.tree.current )
+    
+end
+
+local function noteon( chan, pitch, veloc, time )
+  --io.write("converter.noteon() first="..tostring(first).." collcount="..tostring(collcount).."\n")
+  collector[pitch] = time
+  if collcount > 0 then
+    if singlenote then
+      noteoff( chan, collfirst, veloc, time ) 
+      collfirst = pitch
+    elseif not multinote then
+      multinote = true
+      multitime = collector[collfirst]
+      if lasttime < multitime then 
+        create_rest( lasttime, multitime )
+      end
+      Syntax.tree.current = Syntax.nextState( '&', Syntax.tree.current )
+      Syntax.tree.current = Syntax.nextState( '\n', Syntax.tree.current )
+    end
+  else
+    collfirst = pitch
+    if multinote then
+      Syntax.tree.current = Syntax.nextState( '\t', Syntax.tree.current )
+      multinote = false
+    end
+  end
+  collcount = collcount + 1
+end
+
 local function create_note( starttime, endtime, pitch, veloc )
   -- adjust times to grid based on current Denominator
   starttime = adjusttime( starttime )
@@ -496,47 +543,34 @@ local function create_note( starttime, endtime, pitch, veloc )
     
 end
 
-local function create_rest( starttime, endtime )
-  -- adjust times to grid based on current Denominator
-  starttime = adjusttime( starttime )
-  endtime = adjusttime( endtime )
-  if starttime == endtime then return end
-    
-  Syntax.tree.current = Syntax.nextState( '*', Syntax.tree.current )
-  Syntax.tree.current = Syntax.nextState( '\n', Syntax.tree.current )
-
-  local numerator = (endtime - starttime) / ( 96 / Denominator )  
-  Syntax.tree.current = Syntax.nextState( tostring( numerator), Syntax.tree.current )
+function noteoff( chan, pitch, veloc, time )
+  if collector[pitch] == nil then return end
   
-  Syntax.tree.current = Syntax.nextState( '\t', Syntax.tree.current )
-  Syntax.tree.current = Syntax.nextState( '\t', Syntax.tree.current )
-    
-end
-
-local function noteoff( chan, pitch, veloc, time )
   local starttime
-  --io.write("converter.noteoff() collfirst="..tostring(collfirst).." collcount="..tostring(collcount).."\n")
-  --if collfirst and collcount == 1 then
-  if collfirst then
-    collfirst = false
+  --io.write("converter.noteoff() first="..tostring(first).." collcount="..tostring(collcount).."\n")
+  --if first and collcount == 1 then
+  if multinote then
+    starttime = multitime
+    Syntax.tree.current = Syntax.nextState( '_', Syntax.tree.current )
+    Syntax.tree.current = Syntax.nextState( '\n', Syntax.tree.current )
+  elseif first then
+    first = false
     starttime = collector[pitch] - collector[pitch] % 96
-    if collector[pitch] > starttime then
-      create_rest( starttime, collector[pitch] )
-    end
-    create_note( collector[pitch], time, pitch, veloc )
-    collector[pitch] = nil
-    collcount = collcount - 1
-    lasttime = time
-    return
+  else
+    starttime = lasttime
   end
-  starttime = lasttime
   if collector[pitch] > starttime then
     create_rest( starttime, collector[pitch] )
   end
   create_note( collector[pitch], time, pitch, veloc )
   collector[pitch] = nil
   collcount = collcount - 1
-  lasttime = time  
+  if multinote then
+    Syntax.tree.current = Syntax.nextState( '\t', Syntax.tree.current )
+    if time > lasttime then lasttime = time end
+  else
+    lasttime = time  
+  end
 end
 
 local function pitch2note( pitch )
@@ -560,10 +594,14 @@ local function pitch2note( pitch )
 end
 
 local function set_first()
-  collfirst = true
+  first = true
   collector = {}
   collcount = 0
   --io.write("converter.first() capture="..tostring(capturemode).."\n")
+end
+
+local function set_singlenote(mode)
+  singlenote = mode
 end
 
 local function reset(time)
@@ -597,6 +635,7 @@ convertmidi.evalAsList = evalAsList
 convertmidi.noteon = noteon
 convertmidi.noteoff = noteoff
 convertmidi.first = set_first
+convertmidi.singlenote = set_singlenote
 convertmidi.pitch2note = pitch2note
 
 return convertmidi

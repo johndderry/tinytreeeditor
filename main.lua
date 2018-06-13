@@ -499,11 +499,18 @@ function sys.keyreleased( key )
   
   if key == sys.f7 and alsa then
     if shift then 
+      capturemode = not capturemode
+      if capturemode then 
+        converter.first()
+        if shiftkey == sys.leftshift then
+          converter.singlenote( true )
+        else
+          converter.singlenote( false )
+        end
+      end
+    else 
       metro = not metro
       alsa.metronome( metro )
-    else 
-      capturemode = not capturemode
-      if capturemode then converter.first() end
     end
     return
   end
@@ -537,7 +544,12 @@ function sys.keyreleased( key )
     return
   end
     
-  if key == sys.f10 then 
+  if key == sys.f10 then
+    if shift then 
+        Syntax.tree = SynTree:new()
+        Syntax.tree.state = "init"
+        return
+    end
     if alsa then 
       alsa.queueoff()
       alsa.close()
@@ -809,7 +821,7 @@ function sys.draw()
   elseif shift then
     sys.graphics.print( "Use Arrow/Home/End to navigate for editing. Insert/Delete to cut&paste, `\\' to edit.", 2, 2) 
     sys.graphics.setBackgroundColor( 0, 0.4, 0.2, 1 )
-    sys.graphics.print( "F1 Alt-Load/F2 Alt-Save/F3/F4 Reverse Sort/F5 Restrictive Mode/F6 Delete Root/F7 Capture/F8 Gen Select/F9 List View/F10", 2, 6 + fontheight ) 
+    sys.graphics.print( "F1 Alt-Load/F2 Alt-Save/F3/F4 Reverse Sort/F5 Restrictive Mode/F6 Delete Root/F7 Capture/F8 Gen Select/F9 List View/F10 Clear", 2, 6 + fontheight ) 
   elseif message then
     sys.graphics.print( message, 2, 2 )
   else
