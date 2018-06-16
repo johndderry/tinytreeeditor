@@ -21,7 +21,7 @@ function Player:new(n)
 end
 
 function Player:draw(ypos)
-  love.graphics.print("hello from Player "..self.name.." sched="..self.schedtime.." select="..self.select, 5, ypos )
+  love.graphics.print("Player "..self.name.." sched="..self.schedtime.." class="..self.class.." select="..self.select, 5, ypos )
   return ypos + font:getHeight()
 end
 
@@ -52,8 +52,19 @@ function CatEntry:new(n)
 end
     
 function CatEntry:draw(ypos)
-  love.graphics.print("hello from CatEntry "..self.name.." time="..self.time, 5, ypos )
+  love.graphics.print("CatEntry "..self.name.." time="..self.time.." class="..self.class, 5, ypos )
   return ypos + font:getHeight()
+end
+
+function getselection(class)
+  s = {}
+  local n
+  for n = 1, #Catalog do
+    if Catalog[n].class == class then
+      s[#s+1] = n
+    end
+  end
+  return s
 end
 
 function load_catalog()
@@ -64,14 +75,16 @@ function load_catalog()
   local catalog = {}
   local n
   for n = 1, #load do
-    local f = io.open(load[n])
+    local p = load[n]
+    local f = io.open(p["name"])
     if f then
-      io.write("loading score "..load[n].."\n")
+      io.write("loading score "..p["name"].."\n")
       local s = f:read("*all")
       Syntax.state = "init"
       Syntax.load( s )
-      catalog[#catalog+1] = CatEntry:new(load[n])
+      catalog[#catalog+1] = CatEntry:new(p["name"])
       catalog[#catalog].tree = Syntax.tree
+      catalog[#catalog].class = p["class"]
       Syntax.tree = SynTree:new()
       converter.reset(0)
       local start = catalog[#catalog].tree.root
@@ -91,19 +104,10 @@ function load_ensemble()
   for n = 1, #load do
     local p = load[n]
     ensemble[#ensemble+1] = Player:new(p["name"])
-    ensemble[#ensemble].choices = p["choices"]
+    ensemble[#ensemble].class = p["class"]
+    ensemble[#ensemble].choices = getselection(p["class"])
   end
   return ensemble
-end
-
-function convchoices( inp )
-  local a, n
-  local r = {}
-  for n = 1, #inp do
-    a = string.sub( inp, n, n )
-    r[n] = Sdigits[a]
-  end
-  return r
 end
 
 input = ""
@@ -113,7 +117,8 @@ function love.keyreleased( key )
   if key == "f1" then
     if f1mode then
       Ensemble[#Ensemble+1] = Player:new( tostring(#Ensemble+1) )
-      Ensemble[#Ensemble].choices = convchoices( input )
+      Ensemble[#Ensemble].class = input
+      Ensemble[#Ensemble].choices = getselection( input )
       f1mode = false
     else
       f1mode = true
@@ -122,7 +127,11 @@ function love.keyreleased( key )
   end    
       
   if f1mode then
-    input = input .. key
+    if key == "backspace" then
+      input = string.sub(input, 1, #input-1)
+    else      
+      input = input .. key
+    end
     return
   end
   

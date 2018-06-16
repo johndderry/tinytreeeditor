@@ -21,6 +21,7 @@ mouseScrHold, mouseTreehold, mouseMoved = false, false, false
 showkeyparse, showlist = false, false
 capturemode, metro = false, false
 shiftkey = nil
+outchannel = 1
 
 if love then
   sys = require "lovedef"
@@ -63,7 +64,7 @@ function sys.noteon( channel, pitch, velocity, time )
   else
     Keystroke.input = converter.pitch2note( pitch ) or Keystroke.input
   end
-  alsa.sendnoteon( channel, pitch, velocity, time )
+  alsa.sendnoteon( outchannel, pitch, velocity, time )
   alsa.drain()
   
 end
@@ -73,7 +74,7 @@ function sys.noteoff( channel, pitch, velocity, time )
   if capturemode then
     converter.noteoff( channel, pitch, velocity, time)
   end
-  alsa.sendnoteoff( channel, pitch, velocity, time )
+  alsa.sendnoteoff( outchannel, pitch, velocity, time )
   alsa.drain()
   
 end
@@ -533,6 +534,9 @@ function sys.keyreleased( key )
       while start and start.name:sub(1,1) == '#' do start = start.child end
       converter.evalAsList( start, "initial" )
     end
+    outchannel = converter.getchan()
+    local duration = converter.gettime()-tick
+    message = "duration=" .. tostring(duration) .. " beats=" .. tostring( duration / 96 )
     alsa.drain()
     
     return

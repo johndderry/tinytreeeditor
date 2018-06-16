@@ -623,10 +623,15 @@ local function gettime()
   return Time
 end
 
+local function getchan()
+  return Channel
+end
+
 local convertmidi = {}
 
 convertmidi.quiet = quiet
 convertmidi.gettime = gettime
+convertmidi.getchan = getchan
 convertmidi.reset = reset
 convertmidi.evalAsRepeat = evalAsRepeat
 convertmidi.evalAsParallel = evalAsParallel
