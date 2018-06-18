@@ -120,14 +120,20 @@ function sys.mousemoved( x, y, dx, dy )
     
     if shift then
       breaknode = holdtree:locate( holdtree.root, x, y )
-      newtree = holdtree:split( breaknode )
-      newtree.select = newtree.root 
-      newtree.select.selected = true
-      newtree.current = newtree:outerChild( newtree.root )
-      newtree.cutbuffer = Syntax.tree.cutbuffer
-      Syntax.tree.select.selected = false
-      trees[#trees+1], Syntax.tree, holdtree = newtree, newtree, newtree
-      shift = false      -- necessary or we will keep coming back here
+      if breaknode and breaknode ~= holdtree.root then
+        newtree = holdtree:split( breaknode )
+        newtree.select = newtree.root 
+        newtree.select.selected = true
+        newtree.current = newtree:outerChild( newtree.root )
+        newtree.cutbuffer = Syntax.tree.cutbuffer
+        Syntax.tree.select.selected = false
+        trees[#trees+1], Syntax.tree, holdtree = newtree, newtree, newtree
+        shift = false      -- necessary or we will keep coming back here
+      else
+        holdtree.xoffs = holdtree.xoffs + dx
+        holdtree.yoffs = holdtree.yoffs + dy
+        mouseMoved = true
+      end
     else
       holdtree.xoffs = holdtree.xoffs + dx
       holdtree.yoffs = holdtree.yoffs + dy
@@ -149,7 +155,7 @@ function sys.mousereleased( x, y, button )
         hx = holdtree.root.x 
         hy = holdtree.root.y 
         dest = Syntax.tree:locate( Syntax.tree.root, hx, hy )
-        if dest then
+        if dest and holdtree ~= Syntax.tree   then
           if shiftkey == sys.leftshift then Syntax.tree:merge( dest, "child", holdtree ) end
           if shiftkey == sys.rightshift then Syntax.tree:merge( dest, "sibling", holdtree ) end
           for k, v in ipairs( trees ) do
@@ -159,14 +165,6 @@ function sys.mousereleased( x, y, button )
             end
           end
         end         
-      else
-        if mouseTreehold then
-          node = holdtree:locate( holdtree.root, x, y )
-          if node then node.open = not node.open end
-        else
-          node = Syntax.tree:locate( Syntax.tree.root, x, y )
-          if node then node.open = not node.open end
-        end
       end
     end
     mouseTreehold = false
@@ -178,7 +176,11 @@ function sys.mousereleased( x, y, button )
     node = Syntax.tree:locate( Syntax.tree.root, x, y )
     if node then
       if shift then
-        Syntax.tree.current = node
+        if shiftkey == sys.leftshift then
+          Syntax.tree.current = node
+        else
+          node.open = not node.open
+        end
       else
         if node.selected then
           editmode = true
@@ -198,6 +200,7 @@ function sys.mousereleased( x, y, button )
           Syntax.tree = v
           if shift then
             Syntax.tree.current = node
+            Syntax.tree.select.selected = true
           else      
             Syntax.tree.select.selected = false
             Syntax.tree.select = node
